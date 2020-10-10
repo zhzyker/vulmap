@@ -1,17 +1,23 @@
-
-## Vulmap 
+## Vulmap - Vulnerability scanning and verification tools
 Vulmap是一款漏洞扫描工具, 可对Web容器、Web服务器、Web中间件以及CMS等Web程序进行漏洞扫描, 并且具备漏洞利用功能。
 相关测试人员可以使用vulmap检测目标是否存在特定漏洞, 并且可以使用漏洞利用功能验证漏洞是否真实存在。
 
-Vulmap目前有漏洞扫描(poc)和漏洞利用(exp)模式, 使用"-m"选现指定使用哪个模式, 缺省则默认poc模式, 在poc模式中还支持"-f"批量目标扫描、"-o"文件输出结果等主要功能, 更多功能参见Options或者python3 vulmap.py -h, 漏洞利用exp模式中将不再提供poc功能, 而是直接进行漏洞利用, 并反馈回利用结果, 用于进一步验证漏洞是否存在, 是否可被利用。
+Vulmap目前有漏洞扫描(poc)和漏洞利用(exp)模式, 使用"-m"选现指定使用哪个模式, 缺省则默认poc模式, 在poc模式中还支持"-f"批量目标扫描、"-o"文件输出结果等主要功能, 更多功能参见[Options](https://github.com/zhzyker/vulmap/#options)或者python3 vulmap.py -h, 漏洞利用exp模式中将不再提供poc功能, 而是直接进行漏洞利用, 并反馈回利用结果, 用于进一步验证漏洞是否存在, 是否可被利用。
 
-程序完全使用python3编写, 只要确保操作系统中有python3环境, 在Linux、MacOS、Windows中都可运行, 推荐使用python3.7或者更高的版本, vulmap目前只有CLI（命令行）界面, 所以需要在命令行中运行, 详细使用说明请参Options
+程序完全使用python3编写, 只要确保操作系统中有python3环境, 在Linux、MacOS、Windows中都可运行, 推荐使用python3.7或者更高的版本, vulmap目前只有CLI(命令行)界面, 所以需要在命令行中运行, 详细使用说明请参[Options](https://github.com/zhzyker/vulmap/#options)
 
-## Options
+## Installation
+操作系统中必须有python3, 推荐python3.7或者更高版本
+* 安装所需的依赖环境
+```
+pip3 install -r requirements.txt
+```
 * Linux & MacOS & Windows
 ```
 python3 vulmap.py -u http://example.com
-``` 
+```
+
+## Options
 ``` 
 可选参数:
   -h, --help            显示此帮助消息并退出
