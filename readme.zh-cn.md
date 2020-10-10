@@ -6,6 +6,8 @@ Vulmap目前有漏洞扫描(poc)和漏洞利用(exp)模式, 使用"-m"选现指�
 
 程序完全使用python3编写, 只要确保操作系统中有python3环境, 在Linux、MacOS、Windows中都可运行, 推荐使用python3.7或者更高的版本, vulmap目前只有CLI(命令行)界面, 所以需要在命令行中运行, 详细使用说明请参[Options](https://github.com/zhzyker/vulmap/#options)
 
+**应尽量使用 "-a" 制定目标类型以减少误报，例如 "-a solr"**  
+
 ## Installation
 操作系统中必须有python3, 推荐python3.7或者更高版本
 * 安装所需的依赖环境
