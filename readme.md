@@ -4,7 +4,9 @@
 Vulmap is a vulnerability scanning tool that can scan for vulnerabilities in Web containers, Web servers, Web middleware, and CMS and other Web programs, and has vulnerability exploitation functions.
 Relevant testers can use vulmap to detect whether the target has a specific vulnerability, and can use the vulnerability exploitation function to verify whether the vulnerability actually exists.
 
-Vulmap currently has vulnerability scanning (poc) and exploiting (exp) modes. Use "-m" to select which mode to use, and the default poc mode is the default. In poc mode, it also supports "-f" batch target scanning, "-o" File output results and other main functions, Other functions [Options](https://github.com/zhzyker/vulmap/#options) Or python3 vulmap.py -h, the Poc function will no longer be provided in the exploit exploit mode, but the exploit will be carried out directly, and the exploit result will be fed back to further verify whether the vulnerability exists and whether it can be exploited.
+Vulmap currently has vulnerability scanning (poc) and exploiting (exp) modes. Use "-m" to select which mode to use, and the default poc mode is the default. In poc mode, it also supports "-f" batch target scanning, "-o" File output results and other main functions, Other functions [Options](https://github.com/zhzyker/vulmap/#options) Or python3 vulmap.py -h, the Poc function will no longer be provided in the exploit exploit mode, but the exploit will be carried out directly, and the exploit result will be fed back to further verify whether the vulnerability exists and whether it can be exploited.  
+
+**！！！Try to use "-a" to establish target types to reduce false positives, such as "-a solr"**  
 
 ## Installation
 The operating system must have python3, python3.7 or higher is recommended
