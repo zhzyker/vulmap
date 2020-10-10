@@ -1,6 +1,6 @@
 ## Vulmap - Vulnerability scanning and verification tools
-[中文版本(Chinese version)](https://github.com/zhzyker/vulmap/edit/main/readme.zh-cn.md)  
-[русский(Russian version)](https://github.com/zhzyker/vulmap/edit/main/readme.ru-ru.md)  
+[中文版本(Chinese Version)](https://github.com/zhzyker/vulmap/edit/main/readme.zh-cn.md)  
+[русский(Russian Version)](https://github.com/zhzyker/vulmap/edit/main/readme.ru-ru.md)  
 Vulmap is a vulnerability scanning tool that can scan for vulnerabilities in Web containers, Web servers, Web middleware, and CMS and other Web programs, and has vulnerability exploitation functions.
 Relevant testers can use vulmap to detect whether the target has a specific vulnerability, and can use the vulnerability exploitation function to verify whether the vulnerability actually exists.
 
