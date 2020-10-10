@@ -1,0 +1,6 @@
+requests<=2.21.0
+lxml<=4.3.2
+ajpy<=0.0.5
+beautifulsoup4<=4.9.3
+colorama<=0.4.3
+requests_toolbelt<=0.9.1
