@@ -27,7 +27,7 @@ optional arguments:
   -f FILE, --file FILE  Select a target list file, and the url must be distinguished by lines (e.g. -f "/home/user/list.txt")
   -m MODE, --mode MODE  The mode supports "poc" and "exp", you can omit this option, and enter poc mode by default
   -a APP, --app APP     Specify a web app or cms (e.g. -a "weblogic"). default scan all
-  -c CMD, --cmd CMD     Custom RCE vuln command, Other than "netstat -an" and "id" can affect program judgment. defautl is "netstat -an"
+  -c CMD, --cmd CMD     Custom RCE vuln command, Other than "netstat -an" and "id" can affect program judgment. default is "netstat -an"
   -v VULN, --vuln VULN  Exploit, Specify the vuln number (e.g. -v "CVE-2020-2729")
   --list                Displays a list of vulnerabilities that support scanning
   --debug               Debug mode echo request and responses
