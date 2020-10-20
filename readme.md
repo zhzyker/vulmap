@@ -114,3 +114,10 @@ Vulmap supported vulnerabilities are as follows
  | RedHat JBoss      | CVE-2015-7501    |  Y  |  Y  | 5.x, 6.x, jmxinvokerservlet deserialization any file upload |
  +-------------------+------------------+-----+-----+-------------------------------------------------------------+
 ```
+
+## Docker
+
+```shell
+docker build -t vulmap/vulmap .
+docker run --rm -ti vulmap/vulmap  python vulmap.py -u https://www.example.com
+```
