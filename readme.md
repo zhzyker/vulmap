@@ -1,6 +1,5 @@
 ## Vulmap - Vulnerability scanning and verification tools
 [中文版本(Chinese Version)](https://github.com/zhzyker/vulmap/blob/main/readme.zh-cn.md)  
-[русский(Russian Version)](https://github.com/zhzyker/vulmap/blob/main/readme.ru-ru.md)  
 Vulmap is a vulnerability scanning tool that can scan for vulnerabilities in Web containers, Web servers, Web middleware, and CMS and other Web programs, and has vulnerability exploitation functions.
 Relevant testers can use vulmap to detect whether the target has a specific vulnerability, and can use the vulnerability exploitation function to verify whether the vulnerability actually exists.
 
@@ -75,8 +74,9 @@ Vulmap supported vulnerabilities are as follows
  +-------------------+------------------+-----+-----+-------------------------------------------------------------+
  | Target type       | Vuln Name        | Poc | Exp | Impact Version && Vulnerability description                 |
  +-------------------+------------------+-----+-----+-------------------------------------------------------------+
+ | Apache Shiro      | CVE-2016-4437    |  Y  |  Y  | <= 1.2.4, shiro-550, rememberme deserialization rce         |
  | Apache Solr       | CVE-2017-12629   |  Y  |  Y  | < 7.1.0, runexecutablelistener rce & xxe, only rce is here  |
- | Apache Solr       | CVE-2019-0193    |  Y  |  Y  | < 8.2.0, dataimporthandler module remote code execution     |
+ | Apache Solr       | CVE-2019-0193    |  Y  |  N  | < 8.2.0, dataimporthandler module remote code execution     |
  | Apache Solr       | CVE-2019-17558   |  Y  |  Y  | 5.0.0 - 8.3.1, velocity response writer rce                 |
  | Apache Struts2    | S2-005           |  Y  |  Y  | 2.0.0 - 2.1.8.1, cve-2010-1870 parameters interceptor rce   |
  | Apache Struts2    | S2-008           |  Y  |  Y  | 2.0.0 - 2.3.17, debugging interceptor rce                   |
@@ -101,7 +101,7 @@ Vulmap supported vulnerabilities are as follows
  | Jenkins           | CVE-2017-1000353 |  Y  |  N  | <= 2.56, LTS <= 2.46.1, jenkins-ci remote code execution    |
  | Jenkins           | CVE-2018-1000861 |  Y  |  Y  | <= 2.153, LTS <= 2.138.3, remote code execution             |
  | Nexus OSS/Pro     | CVE-2019-7238    |  Y  |  Y  | 3.6.2 - 3.14.0, remote code execution vulnerability         |
- | Nexus OSS/Pro     | CVE-2020-10199   |  N  |  Y  | 3.x  <= 3.21.1, remote code execution vulnerability         |
+ | Nexus OSS/Pro     | CVE-2020-10199   |  Y  |  Y  | 3.x  <= 3.21.1, remote code execution vulnerability         |
  | Oracle Weblogic   | CVE-2014-4210    |  Y  |  N  | 10.0.2 - 10.3.6, weblogic ssrf vulnerability                |
  | Oracle Weblogic   | CVE-2017-3506    |  Y  |  Y  | 10.3.6.0, 12.1.3.0, 12.2.1.0-2, weblogic wls-wsat rce       |
  | Oracle Weblogic   | CVE-2017-10271   |  Y  |  Y  | 10.3.6.0, 12.1.3.0, 12.2.1.1-2, weblogic wls-wsat rce       |
@@ -112,6 +112,8 @@ Vulmap supported vulnerabilities are as follows
  | RedHat JBoss      | CVE-2010-0738    |  Y  |  Y  | 4.2.0 - 4.3.0, jmx-console deserialization any files upload |
  | RedHat JBoss      | CVE-2010-1428    |  Y  |  Y  | 4.2.0 - 4.3.0, web-console deserialization any files upload |
  | RedHat JBoss      | CVE-2015-7501    |  Y  |  Y  | 5.x, 6.x, jmxinvokerservlet deserialization any file upload |
+ | ThinkPHP          | CVE-2019-9082    |  Y  |  Y  | < 3.2.4, thinkphp rememberme deserialization rce            |
+ | ThinkPHP          | CVE-2018-20062   |  Y  |  Y  | <= 5.0.23, 5.1.31, thinkphp rememberme deserialization rce  |
  +-------------------+------------------+-----+-----+-------------------------------------------------------------+
 ```
 
