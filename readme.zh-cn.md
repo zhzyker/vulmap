@@ -27,7 +27,7 @@ python3 vulmap.py -u http://example.com
   -f FILE, --file FILE  选择一个目标列表文件,每个 url 必须用行来区分 (示例: -f "/home/user/list.txt")
   -m MODE, --mode MODE  模式支持 "poc" 和 "exp",可以省略此选项,默认进入 "poc" 模式
   -a APP, --app APP     指定 Web 容器、Web 服务器、Web 中间件或 CMD（例如: "weblogic"）不指定则默认扫描全部
-  -c CMD, --cmd CMD     自定义远程命令执行执行的命令,如果不是 "netstat -an" 和 "id" 可能影响程序判断,默认是 "netstat -an"
+  -c CMD, --cmd CMD     自定义远程命令执行执行的命令,默认是echo
   -v VULN, --vuln VULN  利用漏洞,需要指定漏洞编号 (示例: -v "CVE-2020-2729")
   --list                显示支持的漏洞列表
   --debug               Debug 模式,将显示 request 和 responses
