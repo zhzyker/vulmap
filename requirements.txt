@@ -4,3 +4,4 @@ ajpy
 beautifulsoup4
 colorama
 requests_toolbelt
+pycryptodome
