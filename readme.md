@@ -1,26 +1,31 @@
-## Vulmap - Web vulnerability scanning and verification tools
+## 🌟 Vulmap - Web vulnerability scanning and verification tools
+<a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/python-3.7+-blueviolet"></a>
+<a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/Version-vulmap 0.3-yellow"></a>
+<a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/LICENSE-GPL-ff69b4"></a>
+![GitHub Repo stars](https://img.shields.io/github/stars/zhzyker/vulmap?color=gree)
+![GitHub forks](https://img.shields.io/github/forks/zhzyker/vulmap)
+
+ 
 [英文版本(English Version)](https://github.com/zhzyker/vulmap/blob/main/readme.us-en.md)  
-Vulmap是一款漏洞扫描工具, 可对Web容器、Web服务器、Web中间件以及CMS等Web程序进行漏洞扫描, 并且具备漏洞利用功能。
+> Vulmap是一款Web漏洞扫描和验证工具, 可对Web容器、Web服务器、Web中间件以及CMS等Web程序进行漏洞扫描, 并且具备漏洞利用功能。
 相关测试人员可以使用vulmap检测目标是否存在特定漏洞, 并且可以使用漏洞利用功能验证漏洞是否真实存在。
 
-Vulmap目前有漏洞扫描(poc)和漏洞利用(exp)模式, 使用"-m"选现指定使用哪个模式, 缺省则默认poc模式, 在poc模式中还支持"-f"批量目标扫描、"-o"文件输出结果等主要功能, 更多功能参见[Options](https://github.com/zhzyker/vulmap/#options)或者python3 vulmap.py -h, 漏洞利用exp模式中将不再提供poc功能, 而是直接进行漏洞利用, 并反馈回利用结果, 用于进一步验证漏洞是否存在, 是否可被利用。
+> Vulmap目前有漏洞扫描(poc)和漏洞利用(exp)模式, 使用"-m"选现指定使用哪个模式, 缺省则默认poc模式, 在poc模式中还支持"-f"批量目标扫描、"-o"文件输出结果等主要功能, 更多功能参见[options](https://github.com/zhzyker/vulmap/#options)或者python3 vulmap.py -h, 漏洞利用exp模式中将不再提供poc功能, 而是直接进行漏洞利用, 并反馈回利用结果, 用于进一步验证漏洞是否存在, 是否可被利用。
 
-程序完全使用python3编写, 只要确保操作系统中有python3环境, 在Linux、MacOS、Windows中都可运行, 推荐使用python3.7或者更高的版本, vulmap目前只有CLI(命令行)界面, 所以需要在命令行中运行, 详细使用说明请参[Options](https://github.com/zhzyker/vulmap/#options)
 
-**应尽量使用 "-a" 指定目标类型以减少误报，例如 "-a solr"**  
-
-## Installation
+## 🛒 Installation
 操作系统中必须有python3, 推荐python3.7或者更高版本
-* 安装所需的依赖环境
-```
+```bash
+# 安装所需的依赖环境
 pip3 install -r requirements.txt
-```
-* Linux & MacOS & Windows
-```
+# Linux & MacOS & Windows
 python3 vulmap.py -u http://example.com
 ```
+## 🙋 Discussion
+* Vulmap Bug 反馈或新功能建议[点我](https://github.com/zhzyker/vulmap/issues)
+* 交流鹅群: 219291257
 
-## Options
+## 🔧 Options
 ``` 
 可选参数:
   -h, --help            显示此帮助消息并退出
@@ -36,41 +41,30 @@ python3 vulmap.py -u http://example.com
   --timeout TIMEOUT     超时时间,默认10s
   --output FILE         文本模式输出结果 (示例: -o "result.txt")
 ```
-## Examples
-测试所有漏洞 poc
+## 🐾 Examples
 ```
+# 测试所有漏洞 poc
 python3 vulmap.py -u http://example.com
-```
-针对 RCE 漏洞,使用 id 命令检测是否存在漏洞,因为个别 linux 系统中没有 "netstat -an" 命令
-```
-python3 vulmap.py -u http://example.com -c "id"
-```
 
-检查 http://example.com 是否存在 struts2 漏洞
-```
+# 针对 RCE 漏洞,自定义命令检测是否存在漏洞,例如针对没有回现的漏洞使用dnslog
+python3 vulmap.py -u http://example.com -c "ping xxx.xxx"
+
+# 检查 http://example.com 是否存在 struts2 漏洞
 python3 vulmap.py -u http://example.com -a struts2
-```
-```
 python3 vulmap.py -u http://example.com -m poc -a struts2
-```
-对 http://example.com:7001 进行 WebLogic 的 CVE-2019-2729 漏洞利用
-```
+
+# 对 http://example.com:7001 进行 WebLogic 的 CVE-2019-2729 漏洞利用
 python3 vulmap.py -u http://example.com:7001 -v CVE-2019-2729
-```
-```
 python3 vulmap.py -u http://example.com:7001 -m exp -v CVE-2019-2729
-```
-批量扫描 list.txt 中的 url
-```
+
+# 批量扫描 list.txt 中的 url
 python3 vulmap.py -f list.txt
-```
-扫描结果导出到 result.txt
-```
+
+# 扫描结果导出到 result.txt
 python3 vulmap.py -u http://example.com:7001 -o result.txt
 ```
 
-## Vulnerabilitys List
-vulmap支持的漏洞如下
+## 🍵 Vulnerabilitys List
 ```
  +-------------------+------------------+-----+-----+-------------------------------------------------------------+
  | Target type       | Vuln Name        | Poc | Exp | Impact Version && Vulnerability description                 |
