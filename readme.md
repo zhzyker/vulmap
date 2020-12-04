@@ -17,9 +17,9 @@
 操作系统中必须有python3, 推荐python3.7或者更高版本
 ```bash
 # 安装所需的依赖环境
-pip3 install -r requirements.txt
+pip install -r requirements.txt
 # Linux & MacOS & Windows
-python3 vulmap.py -u http://example.com
+python vulmap.py -u http://example.com
 ```
 ## 🙋 Discussion
 * Vulmap Bug 反馈或新功能建议[点我](https://github.com/zhzyker/vulmap/issues)
