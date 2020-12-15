@@ -14279,9 +14279,9 @@ class Start(object):
     def output(url):
         if RUNALLPOC is not True:
             print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Start scan target: " + str(url)))
-            if OUTPUT is not None:
-                print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Scan results output to: " + OUTPUT))
-                verify.text_output("[*] " + str(url))
+            #if OUTPUT is not None and args.file is not None:
+            #    print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Scan results output to: " + OUTPUT))
+            #    verify.text_output("[*] " + str(url))
                 
     def onepoc_output(self):
         if RUNALLPOC == True:
@@ -14633,10 +14633,10 @@ class Target:
                 if not furl:
                     break
                 if OUTPUT is not None:
-                    verify.text_output("[*] " + str(furl))
+                   verify.text_output("[*] " + str(furl))
                 survival = survival_check(furl)
                 if survival == "f":
-                    print(now.timed(de=0) + color.rewarn() + color.red(" " + furl + " Survival check failed"))
+                    print(now.timed(de=0) + color.rewarn() + color.red(" Survival check failed: " + furl))
                     continue
                 else:
                     print(now.timed(de=DELAY) + color.yeinfo() + color.yellow(" ========== Batch target =========="))
@@ -14701,10 +14701,10 @@ class Target:
                 if not furl:
                     break
                 if OUTPUT is not None:
-                    verify.text_output("[*] " + str(furl))
+                   verify.text_output("[*] " + str(furl))
                 survival = survival_check(furl)
                 if survival == "f":
-                    print(now.timed(de=0) + color.rewarn() + color.red(" " + furl + " Survival check failed"))
+                    print(now.timed(de=0) + color.rewarn() + color.red(" Survival check failed: " + furl))
                     continue
 
                 if webapps == "activemq":
@@ -14988,6 +14988,8 @@ def url_check(url):
             else:
                 url = "http://" + url
                 return url
+        else:
+            return url
             # print(now.timed(de=0) + color.rewarn() + color.red(" URL format error. Examples \"http://example.com\""))
             # sys.exit(0)
     except:
@@ -15097,10 +15099,11 @@ def cmdlineparser(argv=None):
     RUNALLPOC = False
     # check url format
     args.url = url_check(args.url)
-    survival = survival_check(args.url)
-    #if survival == "f":
-    #    print(now.timed(de=0) + color.rewarn() + color.red(" "+str(args.url) +" Survival check failed"))
-    #    sys.exit(0)
+    # survival = survival_check(args.url)
+    # if survival == "f":
+    #     print(now.timed(de=0) + color.rewarn() + color.red(" "+str(args.url) +" Survival check failed"))
+    #     sys.exit(0)
+
     if args.list is False:
         print(now.timed(de=0) + color.yeinfo() + color.yellow(" List of supported vulnerabilities"))
         print(vulnlist)
@@ -15113,6 +15116,9 @@ def cmdlineparser(argv=None):
             print (now.timed(de=DELAY)+color.yeinfo()+color.yellow(" Use debug mode!!!"))
             DEBUG = "debug"
         if args.url is not None and args.file is None:
+            if OUTPUT is not None:
+                print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Scan results output to: " + OUTPUT))
+                verify.text_output("[*] " + str(args.url))
             # -u 模式检测一个URL
             if args.app == None or args.app == "all":
                 RUNALLPOC = True
