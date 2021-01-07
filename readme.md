@@ -1,21 +1,22 @@
 ## 🌟 Vulmap - Web vulnerability scanning and verification tools
 <a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/python-3.7+-blueviolet"></a>
-<a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/Version-vulmap 0.3-yellow"></a>
+<a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/Version-vulmap 0.5-yellow"></a>
 <a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/LICENSE-GPL-ff69b4"></a>
 ![GitHub Repo stars](https://img.shields.io/github/stars/zhzyker/vulmap?color=gree)
 ![GitHub forks](https://img.shields.io/github/forks/zhzyker/vulmap)
 
  
 [英文版本(English Version)](https://github.com/zhzyker/vulmap/blob/main/readme.us-en.md)  
-> Vulmap是一款Web漏洞扫描和验证工具, 可对Web容器、Web服务器、Web中间件以及CMS等Web程序进行漏洞扫描, 并且具备漏洞利用功能。
-相关测试人员可以使用vulmap检测目标是否存在特定漏洞, 并且可以使用漏洞利用功能验证漏洞是否真实存在。
+> Vulmap是一款Web漏洞扫描和验证工具, 可对Web容器、Web服务器、Web中间件以及CMS等Web程序进行漏洞扫描, 并且具备漏洞利用功能
 
-> Vulmap目前有漏洞扫描(poc)和漏洞利用(exp)模式, 使用"-m"选现指定使用哪个模式, 缺省则默认poc模式, 在poc模式中还支持"-f"批量目标扫描、"-o"文件输出结果等主要功能, 更多功能参见[options](https://github.com/zhzyker/vulmap/#options)或者python3 vulmap.py -h, 漏洞利用exp模式中将不再提供poc功能, 而是直接进行漏洞利用, 并反馈回利用结果, 用于进一步验证漏洞是否存在, 是否可被利用。
+> Vulmap目前有漏洞扫描(poc)和漏洞利用(exp)模式, 使用"-m"选现指定使用哪个模式, 缺省则默认poc模式, 在poc模式中还支持"-f"批量目标扫描、"-o"文件输出结果等主要功能, 更多功能参见[options](https://github.com/zhzyker/vulmap/#options)或者python vulmap.py -h, 目前支持扫描 activemq, flink, shiro, solr, struts2, tomcat, unomi, drupal, elasticsearch, nexus, weblogic, jboss, thinkphp
 
 
 ## 🛒 Installation
 操作系统中必须有python3, 推荐python3.7或者更高版本
 ```bash
+# git 或前往 release 获取原码
+git clone https://github.com/zhzyker/vulmap.git
 # 安装所需的依赖环境
 pip install -r requirements.txt
 # Linux & MacOS & Windows
@@ -29,40 +30,52 @@ python vulmap.py -u http://example.com
 ``` 
 可选参数:
   -h, --help            显示此帮助消息并退出
-  -u URL, --url URL     目标 URL (示例: -u "http://example.com")
-  -f FILE, --file FILE  选择一个目标列表文件,每个 url 必须用行来区分 (示例: -f "/home/user/list.txt")
-  -m MODE, --mode MODE  模式支持 "poc" 和 "exp",可以省略此选项,默认进入 "poc" 模式
-  -a APP, --app APP     指定 Web 容器、Web 服务器、Web 中间件或 CMD（例如: "weblogic"）不指定则默认扫描全部
-  -c CMD, --cmd CMD     自定义远程命令执行执行的命令,默认是echo
-  -v VULN, --vuln VULN  利用漏洞,需要指定漏洞编号 (示例: -v "CVE-2020-2729")
-  -o, --output FILE     文本模式输出结果 (示例: -o "result.txt")
+  -u URL, --url URL     目标 URL (e.g. -u "http://example.com")
+  -f FILE, --file FILE  选择一个目标列表文件,每个url必须用行来区分 (e.g. -f "/home/user/list.txt")
+  -m MODE, --mode MODE  模式支持"poc"和"exp",可以省略此选项,默认进入"poc"模式
+  -a APP, --app APP     指定web容器、web服务器、web中间件或cms（e.g. "weblogic"）不指定则默认扫描全部
+  -c CMD, --cmd CMD     自定义远程命令执行执行的命令,默认是"echo VuLnEcHoPoCSuCCeSS"
+  -v VULN, --vuln VULN  利用漏洞,需要指定漏洞编号 (e.g. -v "CVE-2020-2729")
   --list                显示支持的漏洞列表
-  --debug               Debug 模式,将显示 request 和 responses
+  --debug               exp模式显示request和responses,poc模式显示扫描漏洞列表
   --delay DELAY         延时时间,每隔多久发送一次,默认0s
-  --timeout TIMEOUT     超时时间,默认10s
-
+  --timeout TIMEOUT     超时时间,默认5s
+  -t NUM, --thread NUM  扫描线程数量,默认10线程
+  --user-agent UA       允许自定义User-Agent
+  --proxy-socks SOCKS   使用socks代理 (e.g. --proxy-socks 127.0.0.1:1080)
+  --proxy-http HTTP     使用http代理 (e.g. --proxy-http 127.0.0.1:8080)
+  -o, --output FILE     文本模式输出结果 (示例: -o "result.txt")
 ```
+## 👉 Update vulmap 0.5
+* 新增多线程扫描,默认10线程,可自定义,默认开启协程（扫描变得非常快就对了）
+* 支持添加代理扫描,支持socks和http代理
+* 可自定义User-Agent
+* 又改动--debug, exp模式开debug显示request和responses, poc模式显示扫描漏洞列表
+* CVE-2016-4437 Apache Shiro新增三个回显gadget（共6个）,key增至5个
+* 新增Apache Flik CVE-2020-17518 & CVE-2020-17519
+* 优化批量扫描和输出
+
 ## 🐾 Examples
 ```
 # 测试所有漏洞 poc
-python3 vulmap.py -u http://example.com
+python vulmap.py -u http://example.com
 
 # 针对 RCE 漏洞,自定义命令检测是否存在漏洞,例如针对没有回现的漏洞使用dnslog
-python3 vulmap.py -u http://example.com -c "ping xxx.xxx"
+python vulmap.py -u http://example.com -c "ping xxx.xxx"
 
 # 检查 http://example.com 是否存在 struts2 漏洞
-python3 vulmap.py -u http://example.com -a struts2
-python3 vulmap.py -u http://example.com -m poc -a struts2
+python vulmap.py -u http://example.com -a struts2
+python vulmap.py -u http://example.com -m poc -a struts2
 
 # 对 http://example.com:7001 进行 WebLogic 的 CVE-2019-2729 漏洞利用
-python3 vulmap.py -u http://example.com:7001 -v CVE-2019-2729
-python3 vulmap.py -u http://example.com:7001 -m exp -v CVE-2019-2729
+python vulmap.py -u http://example.com:7001 -v CVE-2019-2729
+python vulmap.py -u http://example.com:7001 -m exp -v CVE-2019-2729
 
 # 批量扫描 list.txt 中的 url
-python3 vulmap.py -f list.txt
+python vulmap.py -f list.txt
 
 # 扫描结果导出到 result.txt
-python3 vulmap.py -u http://example.com:7001 -o result.txt
+python vulmap.py -u http://example.com:7001 -o result.txt
 ```
 
 ## 🍵 Vulnerabilitys List
@@ -72,6 +85,8 @@ python3 vulmap.py -u http://example.com:7001 -o result.txt
  +-------------------+------------------+-----+-----+-------------------------------------------------------------+
  | Apache ActiveMQ   | CVE-2015-5254    |  Y  |  N  | < 5.13.0, deserialization remote code execution             |
  | Apache ActiveMQ   | CVE-2016-3088    |  Y  |  Y  | < 5.14.0, http put&move upload webshell                     |
+ | Apache Flink      | CVE-2020-17518   |  Y  |  N  | < 1.11.3 or < 1.12.0, upload path traversal                 |
+ | Apache Flink      | CVE-2020-17519   |  Y  |  Y  | 1.5.1 - 1.11.2, 'jobmanager/logs' path traversal            |
  | Apache Shiro      | CVE-2016-4437    |  Y  |  Y  | <= 1.2.4, shiro-550, rememberme deserialization rce         |
  | Apache Solr       | CVE-2017-12629   |  Y  |  Y  | < 7.1.0, runexecutablelistener rce & xxe, only rce is here  |
  | Apache Solr       | CVE-2019-0193    |  Y  |  N  | < 8.2.0, dataimporthandler module remote code execution     |
@@ -122,3 +137,4 @@ python3 vulmap.py -u http://example.com:7001 -o result.txt
  | ThinkPHP          | CVE-2018-20062   |  Y  |  Y  | <= 5.0.23, 5.1.31, thinkphp rememberme deserialization rce  |
  +-------------------+------------------+-----+-----+-------------------------------------------------------------+
 ```
+
