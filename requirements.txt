@@ -1,7 +1,9 @@
-requests
 lxml
+requests
 ajpy
-beautifulsoup4
 colorama
+gevent
 requests_toolbelt
+beautifulsoup4
 pycryptodome
+SocksiPy_branch
