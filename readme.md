@@ -138,3 +138,10 @@ python vulmap.py -u http://example.com:7001 -o result.txt
  +-------------------+------------------+-----+-----+-------------------------------------------------------------+
 ```
 
+
+## 🐟 Docker
+
+```shell
+docker build -t vulmap/vulmap .
+docker run --rm -ti vulmap/vulmap  python vulmap.py -u https://www.example.com
+```
