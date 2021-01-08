@@ -1,5 +1,5 @@
 ## 🌟 Vulmap - Web vulnerability scanning and verification tools
-<a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/python-3.7+-blueviolet"></a>
+<a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/python-3.8+-blueviolet"></a>
 <a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/Version-vulmap 0.5-yellow"></a>
 <a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/LICENSE-GPL-ff69b4"></a>
 ![GitHub Repo stars](https://img.shields.io/github/stars/zhzyker/vulmap?color=gree)
@@ -13,7 +13,7 @@ Vulmap currently has vulnerability scanning (poc) and exploiting (exp) modes. Us
  
 
 ## 🛒 Installation
-The operating system must have python3, python3.7 or higher is recommended
+The operating system must have python3, python3.8 or higher is recommended
 * git or go to release to get the original code
 ```
 git clone https://github.com/zhzyker/vulmap.git
