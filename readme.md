@@ -1,5 +1,5 @@
 ## 🌟 Vulmap - Web vulnerability scanning and verification tools
-<a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/python-3.7+-blueviolet"></a>
+<a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/python-3.8+-blueviolet"></a>
 <a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/Version-vulmap 0.5-yellow"></a>
 <a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/LICENSE-GPL-ff69b4"></a>
 ![GitHub Repo stars](https://img.shields.io/github/stars/zhzyker/vulmap?color=gree)
@@ -13,7 +13,7 @@
 
 
 ## 🛒 Installation
-操作系统中必须有python3, 推荐python3.7或者更高版本
+操作系统中必须有python3, 推荐python3.8或者更高版本
 ```bash
 # git 或前往 release 获取原码
 git clone https://github.com/zhzyker/vulmap.git
