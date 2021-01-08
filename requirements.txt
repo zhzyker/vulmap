@@ -6,4 +6,4 @@ gevent
 requests_toolbelt
 beautifulsoup4
 pycryptodome
-SocksiPy_branch
+PySocks
