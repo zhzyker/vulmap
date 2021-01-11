@@ -15122,7 +15122,7 @@ class Target:
             run.apache_tomcat(self)
         elif webapps == "unomi":
             run.apache_unomi(self)
-        elif webapps == "deupal":
+        elif webapps == "drupal":
             run.drupal(self)
         elif webapps == "elasticsearch":
             run.elasticsearch(self)
@@ -15172,7 +15172,7 @@ class Target:
                     run.apache_tomcat(furl)
                 elif webapps == "unomi":
                     run.apache_unomi(furl)
-                elif webapps == "deupal":
+                elif webapps == "drupal":
                     run.drupal(furl)
                 elif webapps == "elasticsearch":
                     run.elasticsearch(furl)
