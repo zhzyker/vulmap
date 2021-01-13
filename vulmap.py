@@ -481,7 +481,7 @@ class ApacheFlink():
         try:
             if VULN == None:
                 self.request = requests.get(self.url+self.poc, headers=HEADERS, timeout=TIMEOUT, verify=False)
-                if r"root" in self.request.text:
+                if r"root:x:0:0:root:/root:/bin/bash" in self.request.text and r"daemon:" in self.request.text:
                     self.info = "[traversal: /etc/passwd]"
                     self.r = "PoCSuCCeSS"
                 verify.generic_output(self.r, self.pocname, self.method, self.rawdata, self.info)
