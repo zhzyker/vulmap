@@ -23,8 +23,9 @@ pip install -r requirements.txt
 python vulmap.py -u http://example.com
 ```
 ## 📺 video demo
-YouTube:  https://www.youtube.com/watch?v=g4czwS1Snc4  
-Bilibili: https://www.bilibili.com/video/BV1Fy4y1v7rd  
+> YouTube:  https://www.youtube.com/watch?v=g4czwS1Snc4  
+> Bilibili: https://www.bilibili.com/video/BV1Fy4y1v7rd  
+> Gif:  ![gifdemo](https://github.com/zhzyker/vulmap/blob/main/images/vulmap-0.5-demo.gif)
 
 ## 🙋 Discussion
 * Vulmap Bug 反馈或新功能建议[点我](https://github.com/zhzyker/vulmap/issues)
