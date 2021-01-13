@@ -22,6 +22,10 @@ pip install -r requirements.txt
 # Linux & MacOS & Windows
 python vulmap.py -u http://example.com
 ```
+## 📺 video demo
+YouTube:  https://www.youtube.com/watch?v=g4czwS1Snc4  
+Bilibili: https://www.bilibili.com/video/BV1Fy4y1v7rd  
+
 ## 🙋 Discussion
 * Vulmap Bug 反馈或新功能建议[点我](https://github.com/zhzyker/vulmap/issues)
 * 交流鹅群: 219291257
@@ -47,13 +51,18 @@ python vulmap.py -u http://example.com
   -o, --output FILE     文本模式输出结果 (示例: -o "result.txt")
 ```
 ## 👉 Update vulmap 0.5
+<details>
+<summary>vulmap 0.5 更新内容 [点击展开] </summary>  
+ 
 * 新增多线程扫描,默认10线程,可自定义,默认开启协程（扫描变得非常快就对了）
 * 支持添加代理扫描,支持socks和http代理
 * 可自定义User-Agent
 * 又改动--debug, exp模式开debug显示request和responses, poc模式显示扫描漏洞列表
 * CVE-2016-4437 Apache Shiro新增三个回显gadget（共6个）,key增至5个
 * 新增Apache Flik CVE-2020-17518 & CVE-2020-17519
-* 优化批量扫描和输出
+* 优化批量扫描和输出  
+
+</details>
 
 ## 🐾 Examples
 ```
@@ -79,6 +88,9 @@ python vulmap.py -u http://example.com:7001 -o result.txt
 ```
 
 ## 🍵 Vulnerabilitys List
+<details>
+<summary>支持的漏洞列表 [点击展开] </summary>  
+ 
 ```
  +-------------------+------------------+-----+-----+-------------------------------------------------------------+
  | Target type       | Vuln Name        | Poc | Exp | Impact Version && Vulnerability description                 |
@@ -137,7 +149,7 @@ python vulmap.py -u http://example.com:7001 -o result.txt
  | ThinkPHP          | CVE-2018-20062   |  Y  |  Y  | <= 5.0.23, 5.1.31, thinkphp rememberme deserialization rce  |
  +-------------------+------------------+-----+-----+-------------------------------------------------------------+
 ```
-
+</details>
 
 ## 🐟 Docker
 
