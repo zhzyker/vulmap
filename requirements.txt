@@ -8,3 +8,4 @@ requests_toolbelt
 beautifulsoup4
 pycryptodome
 PySocks
+shodan
