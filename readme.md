@@ -6,38 +6,40 @@
 ![GitHub forks](https://img.shields.io/github/forks/zhzyker/vulmap)
 
  
-[英文版本(English Version)](https://github.com/zhzyker/vulmap/blob/main/readme.us-en.md)  
-> Vulmap是一款Web漏洞扫描和验证工具, 可对Web容器、Web服务器、Web中间件以及CMS等Web程序进行漏洞扫描, 并且具备漏洞利用功能
+[[Click here for the English Version]](https://github.com/zhzyker/vulmap/blob/main/readme.us-en.md)  
+> Vulmap 是一款 web 漏洞扫描和验证工具, 可对 webapps 进行漏洞扫描, 并且具备漏洞利用功能, 目前支持的 webapps 包括 activemq, flink, shiro, solr, struts2, tomcat, unomi, drupal, elasticsearch, fastjson, jenkins, nexus, weblogic, jboss, spring, thinkphp
 
-> Vulmap目前有漏洞扫描(poc)和漏洞利用(exp)模式, 使用"-m"选现指定使用哪个模式, 缺省则默认poc模式, 在poc模式中还支持"-f"批量目标扫描、"-o"文件输出结果等主要功能, 更多功能参见[options](https://github.com/zhzyker/vulmap/#options)或者python vulmap.py -h, 目前支持扫描 all, activemq, flink, shiro, solr, struts2, tomcat, unomi, drupal, elasticsearch, fastjson, jenkins, nexus, weblogic, jboss, spring, thinkphp
-
+> Vulmap 将漏洞扫描与验证（漏洞利用）结合到了一起, 及大程度便于测试人员在发现漏洞后及时进行下一步操作, 工具追求于于高效、便捷  
+高效: 逐步开发中慢慢引入了批量扫描、Fofa、Shodan 批量扫描, 且支持多线程默认开启协程, 以最快的速度扫描大量资产  
+便捷: 发现漏洞即可利用, 大量资产扫描可多格式输出结果
 
 ## 🛒 Installation
-* 操作系统中必须有python3, 推荐python3.8或者更高版本
+#### 操作系统中必须有 python3, 推荐 python3.8 或者更高版本
 ```bash
 # git 或前往 release 获取原码
 git clone https://github.com/zhzyker/vulmap.git
-# 安装所需的依赖环境
+# 安装所需的 python 依赖
 pip3 install -r requirements.txt
 # Linux & MacOS & Windows
 python3 vulmap.py -u http://example.com
 ```
-* 配置 Fofa Api && Shodan Api && Ceye
-若想使用fofa api调用资产需要修改 vulmap.py 中的配置信息：  
-Fofa info: https://fofa.so/user/users/info  
-Shodan key: https://account.shodan.io  
-Ceye info: http://ceye.io/  
+#### 配置 Fofa Api && Shodan Api && Ceye  
 
+使用 Fofa or Shodan 需要修改 vulmap.py 中的配置信息：  
+
+* Fofa info: https://fofa.so/user/users/info  
 ```bash
 # 把xxxxxxxxxx替换成fofa的邮箱
 globals.set_value("fofa_email", "xxxxxxxxxx")  
 # 把xxxxxxxxxx替换成fofa的key
 globals.set_value("fofa_key", "xxxxxxxxxx")  
 ```
+* Shodan key: https://account.shodan.io  
 ```bash
 # 把xxxxxxxxxx替换成自己shodan的key
 globals.set_value("shodan_key", "xxxxxxxxxx")  
 ```
+* Ceye info: http://ceye.io  
 ```bash
 # 把xxxxxxxxxx替换为自己的域名
 globals.set_value("ceye_domain","xxxxxxxxxx")  
@@ -62,13 +64,10 @@ globals.set_value("ceye_token", "xxxxxxxxxx")
 ## 🙋 Discussion
 * Vulmap Bug 反馈或新功能建议[点我](https://github.com/zhzyker/vulmap/issues)
 * Twitter: https://twitter.com/zhzyker
-* WeChat: 微信群满200了，只能拉进群，点击下方按钮即可
-<details>
-<summary> [点我扫描加微信群] </summary>  
+* WeChat: 微信群满200了，只能拉进群
 <p>
     <img alt="QR-code" src="https://github.com/zhzyker/zhzyker/blob/main/my-wechat.jpg" width="20%" height="20%" style="max-width:100%;">
 </p>
- </details>
 
 ## 🔧 Options
 ``` 
@@ -76,36 +75,32 @@ globals.set_value("ceye_token", "xxxxxxxxxx")
   -h, --help            显示此帮助消息并退出
   -u URL, --url URL     目标 URL (e.g. -u "http://example.com")
   -f FILE, --file FILE  选择一个目标列表文件,每个url必须用行来区分 (e.g. -f "/home/user/list.txt")
-  --fofa keyword        使用fofa api批量扫描 (e.g. --fofa "app=Apache-Shiro")
-  --shodan keyword      shodan api批量扫描 (e.g. --shodan "Shiro")
+  --fofa keyword        使用 fofa api 批量扫描 (e.g. --fofa "app=Apache-Shiro")
+  --shodan keyword      使用 shodan api 批量扫描 (e.g. --shodan "Shiro")
   -m MODE, --mode MODE  模式支持"poc"和"exp",可以省略此选项,默认进入"poc"模式
-  -a APP [APP ...]      指定web容器、web服务器、web中间件或cms（e.g. "weblogic"）不指定则默认扫描全部
+  -a APP [APP ...]      指定 webapps（e.g. "weblogic"）不指定则自动指纹识别
   -c CMD, --cmd CMD     自定义远程命令执行执行的命令,默认是echo随机md5
   -v VULN, --vuln VULN  利用漏洞,需要指定漏洞编号 (e.g. -v "CVE-2019-2729")
-  --output-text file    扫描结果输出到txt文件 (e.g. "result.txt")
-  --output-json file    扫描结果输出到json文件 (e.g. "result.json")
-  --fofa-size SIZE      fofa api调用资产数量，默认100，可用(1-10000)
-  --list                显示支持的漏洞列表
-  --debug               exp模式显示request和responses,poc模式显示扫描漏洞列表
-  --delay DELAY         延时时间,每隔多久发送一次,默认0s
-  --timeout TIMEOUT     超时时间,默认5s
   -t NUM, --thread NUM  扫描线程数量,默认10线程
-  --user-agent UA       允许自定义User-Agent
-  --proxy-socks SOCKS   使用socks代理 (e.g. --proxy-socks 127.0.0.1:1080)
-  --proxy-http HTTP     使用http代理 (e.g. --proxy-http 127.0.0.1:8080)
+  --output-text file    扫描结果输出到 txt 文件 (e.g. "result.txt")
+  --output-json file    扫描结果输出到 json 文件 (e.g. "result.json")
+  --proxy-socks SOCKS   使用 socks 代理 (e.g. --proxy-socks 127.0.0.1:1080)
+  --proxy-http HTTP     使用 http 代理 (e.g. --proxy-http 127.0.0.1:8080)
+  --user-agent UA       允许自定义 User-Agent
+  --fofa-size SIZE      fofa api 调用资产数量，默认100，可用(1-10000)
+  --delay DELAY         延时时间,每隔多久发送一次,默认 0s
+  --timeout TIMEOUT     超时时间,默认 5s
+  --list                显示支持的漏洞列表
+  --debug               exp 模式显示 request 和 responses, poc 模式显示扫描漏洞列表
 ```
 
 ## 🐾 Examples
-```
-# 测试所有漏洞 poc
+```bash
+# 测试所有漏洞 poc 不指定 -a all 将默认开启指纹识别
 python3 vulmap.py -u http://example.com
 
-# 针对 RCE 漏洞,自定义命令检测是否存在漏洞,例如针对没有回现的漏洞使用dnslog
-python3 vulmap.py -u http://example.com -c "ping xxx.xxx"
-
-# 检查 http://example.com 是否存在 struts2 漏洞
+# 检查站点是否存在 struts2 漏洞
 python3 vulmap.py -u http://example.com -a struts2
-python3 vulmap.py -u http://example.com -m poc -a struts2
 
 # 对 http://example.com:7001 进行 WebLogic 的 CVE-2019-2729 漏洞利用
 python3 vulmap.py -u http://example.com:7001 -v CVE-2019-2729
@@ -117,7 +112,7 @@ python3 vulmap.py -f list.txt
 # 扫描结果导出到 result.json
 python3 vulmap.py -u http://example.com:7001 --output-json result.json
 
-# 调用fofa api批量扫描
+# 调用 fofa api 批量扫描
 python3 vulmap.py --fofa app=Apache-Shiro
 ```
 
