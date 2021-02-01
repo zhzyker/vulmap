@@ -9,19 +9,37 @@
 [英文版本(English Version)](https://github.com/zhzyker/vulmap/blob/main/readme.us-en.md)  
 > Vulmap是一款Web漏洞扫描和验证工具, 可对Web容器、Web服务器、Web中间件以及CMS等Web程序进行漏洞扫描, 并且具备漏洞利用功能
 
-> Vulmap目前有漏洞扫描(poc)和漏洞利用(exp)模式, 使用"-m"选现指定使用哪个模式, 缺省则默认poc模式, 在poc模式中还支持"-f"批量目标扫描、"-o"文件输出结果等主要功能, 更多功能参见[options](https://github.com/zhzyker/vulmap/#options)或者python vulmap.py -h, 目前支持扫描 activemq, flink, shiro, solr, struts2, tomcat, unomi, drupal, elasticsearch, nexus, weblogic, jboss, thinkphp
+> Vulmap目前有漏洞扫描(poc)和漏洞利用(exp)模式, 使用"-m"选现指定使用哪个模式, 缺省则默认poc模式, 在poc模式中还支持"-f"批量目标扫描、"-o"文件输出结果等主要功能, 更多功能参见[options](https://github.com/zhzyker/vulmap/#options)或者python vulmap.py -h, 目前支持扫描 all, activemq, flink, shiro, solr, struts2, tomcat, unomi, drupal, elasticsearch, fastjson, jenkins, nexus, weblogic, jboss, spring, thinkphp
 
 
 ## 🛒 Installation
-操作系统中必须有python3, 推荐python3.8或者更高版本
+* 操作系统中必须有python3, 推荐python3.8或者更高版本
 ```bash
 # git 或前往 release 获取原码
 git clone https://github.com/zhzyker/vulmap.git
 # 安装所需的依赖环境
-pip install -r requirements.txt
+pip3 install -r requirements.txt
 # Linux & MacOS & Windows
-python vulmap.py -u http://example.com
+python3 vulmap.py -u http://example.com
 ```
+* 配置 Fofa Api && Shodan Api && Ceye
+若想使用fofa api调用资产需要修改 vulmap.py 中的配置信息：
+Fofa info: https://fofa.so/user/users/info
+Shodan key: https://account.shodan.io
+Ceye info: http://ceye.io/
+
+```
+globals.set_value("fofa_email", "xxxxxxxxxx")  # 把xxxxxxxxxx替换成fofa的邮箱
+globals.set_value("fofa_key", "xxxxxxxxxx")  # 把xxxxxxxxxx替换成fofa的key
+```
+```
+globals.set_value("shodan_key", "xxxxxxxxxx")  # 把xxxxxxxxxx替换成自己shodan的key
+```
+```
+globals.set_value("ceye_domain","xxxxxxxxxx")  # 把xxxxxxxxxx替换为自己的域名
+globals.set_value("ceye_token", "xxxxxxxxxx")  # 把xxxxxxxxxx替换自己ceye的token
+```
+
 ## 📺 video demo
 > YouTube:  https://www.youtube.com/watch?v=g4czwS1Snc4  
 > Bilibili: https://www.bilibili.com/video/BV1Fy4y1v7rd  
@@ -44,10 +62,15 @@ python vulmap.py -u http://example.com
   -h, --help            显示此帮助消息并退出
   -u URL, --url URL     目标 URL (e.g. -u "http://example.com")
   -f FILE, --file FILE  选择一个目标列表文件,每个url必须用行来区分 (e.g. -f "/home/user/list.txt")
+  --fofa keyword        使用fofa api批量扫描 (e.g. --fofa "app=Apache-Shiro")
+  --shodan keyword      shodan api批量扫描 (e.g. --shodan "Shiro")
   -m MODE, --mode MODE  模式支持"poc"和"exp",可以省略此选项,默认进入"poc"模式
-  -a APP, --app APP     指定web容器、web服务器、web中间件或cms（e.g. "weblogic"）不指定则默认扫描全部
-  -c CMD, --cmd CMD     自定义远程命令执行执行的命令,默认是"echo VuLnEcHoPoCSuCCeSS"
-  -v VULN, --vuln VULN  利用漏洞,需要指定漏洞编号 (e.g. -v "CVE-2020-2729")
+  -a APP [APP ...]      指定web容器、web服务器、web中间件或cms（e.g. "weblogic"）不指定则默认扫描全部
+  -c CMD, --cmd CMD     自定义远程命令执行执行的命令,默认是echo随机md5
+  -v VULN, --vuln VULN  利用漏洞,需要指定漏洞编号 (e.g. -v "CVE-2019-2729")
+  --output-text file    扫描结果输出到txt文件 (e.g. "result.txt")
+  --output-json file    扫描结果输出到json文件 (e.g. "result.json")
+  --fofa-size SIZE      fofa api调用资产数量，默认100，可用(1-10000)
   --list                显示支持的漏洞列表
   --debug               exp模式显示request和responses,poc模式显示扫描漏洞列表
   --delay DELAY         延时时间,每隔多久发送一次,默认0s
@@ -56,43 +79,32 @@ python vulmap.py -u http://example.com
   --user-agent UA       允许自定义User-Agent
   --proxy-socks SOCKS   使用socks代理 (e.g. --proxy-socks 127.0.0.1:1080)
   --proxy-http HTTP     使用http代理 (e.g. --proxy-http 127.0.0.1:8080)
-  -o, --output FILE     文本模式输出结果 (示例: -o "result.txt")
 ```
-## 👉 Update vulmap 0.5
-<details>
-<summary>vulmap 0.5 更新内容 [点击展开] </summary>  
- 
-* 新增多线程扫描,默认10线程,可自定义,默认开启协程（扫描变得非常快就对了）
-* 支持添加代理扫描,支持socks和http代理
-* 可自定义User-Agent
-* 又改动--debug, exp模式开debug显示request和responses, poc模式显示扫描漏洞列表
-* CVE-2016-4437 Apache Shiro新增三个回显gadget（共6个）,key增至5个
-* 新增Apache Flik CVE-2020-17518 & CVE-2020-17519
-* 优化批量扫描和输出  
-
-</details>
 
 ## 🐾 Examples
 ```
 # 测试所有漏洞 poc
-python vulmap.py -u http://example.com
+python3 vulmap.py -u http://example.com
 
 # 针对 RCE 漏洞,自定义命令检测是否存在漏洞,例如针对没有回现的漏洞使用dnslog
-python vulmap.py -u http://example.com -c "ping xxx.xxx"
+python3 vulmap.py -u http://example.com -c "ping xxx.xxx"
 
 # 检查 http://example.com 是否存在 struts2 漏洞
-python vulmap.py -u http://example.com -a struts2
-python vulmap.py -u http://example.com -m poc -a struts2
+python3 vulmap.py -u http://example.com -a struts2
+python3 vulmap.py -u http://example.com -m poc -a struts2
 
 # 对 http://example.com:7001 进行 WebLogic 的 CVE-2019-2729 漏洞利用
-python vulmap.py -u http://example.com:7001 -v CVE-2019-2729
-python vulmap.py -u http://example.com:7001 -m exp -v CVE-2019-2729
+python3 vulmap.py -u http://example.com:7001 -v CVE-2019-2729
+python3 vulmap.py -u http://example.com:7001 -m exp -v CVE-2019-2729
 
 # 批量扫描 list.txt 中的 url
-python vulmap.py -f list.txt
+python3 vulmap.py -f list.txt
 
-# 扫描结果导出到 result.txt
-python vulmap.py -u http://example.com:7001 -o result.txt
+# 扫描结果导出到 result.json
+python3 vulmap.py -u http://example.com:7001 --output-json result.json
+
+# 调用fofa api批量扫描
+python3 vulmap.py --fofa app=Apache-Shiro
 ```
 
 ## 🍵 Vulnerabilitys List
@@ -135,7 +147,10 @@ python vulmap.py -u http://example.com:7001 -o result.txt
  | Drupal            | CVE-2018-7602    |  Y  |  Y  | < 7.59, < 8.5.3 (except 8.4.8) drupalgeddon2 rce            |
  | Drupal            | CVE-2019-6340    |  Y  |  Y  | < 8.6.10, drupal core restful remote code execution         |
  | Elasticsearch     | CVE-2014-3120    |  Y  |  Y  | < 1.2, elasticsearch remote code execution                  |
- | Elasticsearch     | CVE-2015-1427    |  Y  |  Y  | 1.4.0 < 1.4.3, elasticsearch remote code execution          |
+ | Elasticsearch     | CVE-2015-1427    |  Y  |  Y  | < 1.3.7, < 1.4.3, elasticsearch remote code execution       |
+ | Fastjson          | 1.2.24           |  Y  |  Y  | <= 1.2.24 fastjson parse object remote code execution       |
+ | Fastjson          | 1.2.47           |  Y  |  Y  | <= 1.2.47 fastjson autotype remote code execution           |
+ | Fsatjson          | 1.2.62           |  Y  |  Y  | <= 1.2.24 fastjson autotype remote code execution           |
  | Jenkins           | CVE-2017-1000353 |  Y  |  N  | <= 2.56, LTS <= 2.46.1, jenkins-ci remote code execution    |
  | Jenkins           | CVE-2018-1000861 |  Y  |  Y  | <= 2.153, LTS <= 2.138.3, remote code execution             |
  | Nexus OSS/Pro     | CVE-2019-7238    |  Y  |  Y  | 3.6.2 - 3.14.0, remote code execution vulnerability         |
@@ -153,6 +168,8 @@ python vulmap.py -u http://example.com:7001 -o result.txt
  | RedHat JBoss      | CVE-2010-0738    |  Y  |  Y  | 4.2.0 - 4.3.0, jmx-console deserialization any files upload |
  | RedHat JBoss      | CVE-2010-1428    |  Y  |  Y  | 4.2.0 - 4.3.0, web-console deserialization any files upload |
  | RedHat JBoss      | CVE-2015-7501    |  Y  |  Y  | 5.x, 6.x, jmxinvokerservlet deserialization any file upload |
+ | Spring Data       | CVE-2018-1273    |  Y  |  Y  | 1.13 - 1.13.10, 2.0 - 2.0.5, spring data commons rce        |
+ | Spring Cloud      | CVE-2019-3799    |  Y  |  Y  | 2.1.0-2.1.1, 2.0.0-2.0.3, 1.4.0-1.4.5, directory traversal  |
  | ThinkPHP          | CVE-2019-9082    |  Y  |  Y  | < 3.2.4, thinkphp rememberme deserialization rce            |
  | ThinkPHP          | CVE-2018-20062   |  Y  |  Y  | <= 5.0.23, 5.1.31, thinkphp rememberme deserialization rce  |
  +-------------------+------------------+-----+-----+-------------------------------------------------------------+
