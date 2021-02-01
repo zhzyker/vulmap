@@ -28,17 +28,17 @@ Fofa info: https://fofa.so/user/users/info
 Shodan key: https://account.shodan.io  
 Ceye info: http://ceye.io/  
 
-```
+```bash
 # 把xxxxxxxxxx替换成fofa的邮箱
 globals.set_value("fofa_email", "xxxxxxxxxx")  
 # 把xxxxxxxxxx替换成fofa的key
 globals.set_value("fofa_key", "xxxxxxxxxx")  
 ```
-```
+```bash
 # 把xxxxxxxxxx替换成自己shodan的key
 globals.set_value("shodan_key", "xxxxxxxxxx")  
 ```
-```
+```bash
 # 把xxxxxxxxxx替换为自己的域名
 globals.set_value("ceye_domain","xxxxxxxxxx")  
 # 把xxxxxxxxxx替换自己ceye的token
