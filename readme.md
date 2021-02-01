@@ -23,7 +23,7 @@ pip3 install -r requirements.txt
 python3 vulmap.py -u http://example.com
 ```
 * 配置 Fofa Api && Shodan Api && Ceye
-若想使用fofa api调用资产需要修改 vulmap.py 中的配置信息：
+若想使用fofa api调用资产需要修改 vulmap.py 中的配置信息：  
 Fofa info: https://fofa.so/user/users/info  
 Shodan key: https://account.shodan.io  
 Ceye info: http://ceye.io/  
@@ -49,6 +49,15 @@ globals.set_value("ceye_token", "xxxxxxxxxx")
 > YouTube:  https://www.youtube.com/watch?v=g4czwS1Snc4  
 > Bilibili: https://www.bilibili.com/video/BV1Fy4y1v7rd  
 > Gif: ![https://github.com/zhzyker/vulmap/blob/main/images/vulmap-0.5-demo-gif.gif](https://github.com/zhzyker/vulmap/blob/main/images/vulmap-0.5-demo-gif.gif)
+
+## 🔥 Release 0.6
+1. 优化输出, 新增 json 输出, 格式与 xray 一致.
+2. 新增 fastjson 和 spring 漏洞扫描和利用.
+3. 引入 ceye 检测无回显 rce 漏洞.
+4. 添加 fofa api 和 shodan api 批量扫描.
+5. 重构 poc 模块, 重构 vulmap 变为模块化.
+6. 新添自动指纹识别.
+7. 替换echo命令为随机md5
 
 ## 🙋 Discussion
 * Vulmap Bug 反馈或新功能建议[点我](https://github.com/zhzyker/vulmap/issues)
