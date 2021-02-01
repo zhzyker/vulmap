@@ -1,16 +1,16 @@
 ## 🌟 Vulmap - Web vulnerability scanning and verification tools
 <a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/python-3.8+-blueviolet"></a>
-<a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/Version-vulmap 0.5-yellow"></a>
+<a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/Version-vulmap 0.6-yellow"></a>
 <a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/LICENSE-GPL-ff69b4"></a>
 ![GitHub Repo stars](https://img.shields.io/github/stars/zhzyker/vulmap?color=gree)
 ![GitHub forks](https://img.shields.io/github/forks/zhzyker/vulmap)  
 
 [中文版本(Chinese Version)](https://github.com/zhzyker/vulmap)  
-Vulmap is a vulnerability scanning tool that can scan for vulnerabilities in Web containers, Web servers, Web middleware, and CMS and other Web programs, and has vulnerability exploitation functions.
-
-
-Vulmap currently has vulnerability scanning (poc) and exploiting (exp) modes. Use "-m" to select which mode to use, and the default poc mode is the default. In poc mode, it also supports "-f" batch target scanning, "-o" File output results and other main functions, Other functions [Options](https://github.com/zhzyker/vulmap/#options) Or python3 vulmap.py -h, Currently supports scanning activemq, flink, shiro, solr, struts2, tomcat, unomi, drupal, elasticsearch, nexus, weblogic, jboss, thinkphp
- 
+> Vulmap is a web vulnerability scanning and verification tool that can scan webapps for vulnerabilities and has vulnerability exploitation functions. Currently supported webapps include activemq, flink, shiro, solr, struts2, tomcat, unomi, drupal, elasticsearch, fastjson, jenkins , nexus, weblogic, jboss, spring, thinkphp
+> 
+> Vulmap combines vulnerability scanning and verification (vulnerability exploitation), and to a large extent, it is convenient for testers to take the next step in time after discovering vulnerabilities. The tool pursues efficiency and convenience
+Efficient: Batch scanning, Fofa, Shodan batch scanning are slowly introduced in the gradual development, and multi-threading is supported by default to enable coroutines to scan a large number of assets at the fastest speed
+Convenience: You can take advantage of vulnerabilities found, scan a large number of assets and output results in multiple formats
 
 ## 🛒 Installation
 The operating system must have python3, python3.8 or higher is recommended
@@ -27,6 +27,27 @@ pip3 install -r requirements.txt
 python vulmap.py -u http://example.com
 ```
 
+Configure Fofa Api && Shodan Api && Ceye
+* Fofa info: https://fofa.so/user/users/info
+```bash
+# Replace xxxxxxxxxx with fofa email
+globals.set_value("fofa_email", "xxxxxxxxxx")  
+# Replace xxxxxxxxxx with fofa key
+globals.set_value("fofa_key", "xxxxxxxxxx")
+```
+* Shodan key: https://account.shodan.io
+```bash
+# Replace xxxxxxxxxx with your shodan key
+globals.set_value("shodan_key", "xxxxxxxxxx")
+```
+
+* Ceye info: http://ceye.io
+```bash
+# Replace xxxxxxxxxx with your own domain name
+globals.set_value("ceye_domain","xxxxxxxxxx")  
+# Replace xxxxxxxxxx with your own ceye token
+globals.set_value("ceye_token", "xxxxxxxxxx") 
+```
 ## 🙋 Discussion
 * Vulmap bug feedback or new feature suggestions[Point Me](https://github.com/zhzyker/vulmap/issues)
 * Telegram: t.me/zhzyker
@@ -36,30 +57,29 @@ python vulmap.py -u http://example.com
 optional arguments:
   -h, --help            show this help message and exit
   -u URL, --url URL     target URL (e.g. -u "http://example.com")
-  -f FILE, --file FILE  select a target list file (e.g. -f "/home/user/list.txt")
-  -m MODE, --mode MODE  the mode supports "poc" and "exp", you can omit this option, and enter poc mode by default
-  -a APP, --app APP     specify a web app or cms (e.g. -a "weblogic"). default scan all
-  -c CMD, --cmd CMD     custom RCE vuln command, default is "echo VuLnEcHoPoCSuCCeSS"
-  -v VULN, --vuln VULN  exploit, specify the vuln number (e.g. -v "CVE-2020-2729")
-  --list                displays a list of vulnerabilities that support scanning
-  --debug               exp mode echo request and responses, poc mode echo vuln lists
-  --delay DELAY         delay check time, default 0s
-  --timeout TIMEOUT     scan timeout time, default 5s
+  -f FILE, --file FILE  select a target list file (e.g. -f "list.txt")
+  --fofa keyword        call fofa api to scan (e.g. --fofa "app=Apache-Shiro")
+  --shodan keyword      call shodan api to scan (e.g. --shodan "Shiro")
+  -m MODE, --mode MODE  supports poc and exp, if not specified the default poc
+  -a APP [APP ...]      specify webapps (e.g. -a "tomcat") allow multiple
+  -v VUL, --vul VUL     exploit, specify vuln number (e.g. -v CVE-2019-2729)
   -t NUM, --thread NUM  number of scanning function threads, default 10 threads
-  --user-agent UA       You can customize the User-Agent header with the change option
+  --output-text file    result export txt file (e.g. "result.txt")
+  --output-json file    result export json file (e.g. "result.json")
   --proxy-socks SOCKS   socks proxy (e.g. --proxy-socks 127.0.0.1:1080)
   --proxy-http HTTP     http proxy (e.g. --proxy-http 127.0.0.1:8080)
-  -o, --output FILE     text mode export (e.g. -o "result.txt")
+  --fofa-size SIZE      Fofa query target number, default 100 (1-10000)
+  --user-agent UA       you can customize the user-agent headers
+  --delay DELAY         delay check time, default 0s
+  --timeout TIMEOUT     scan timeout time, default 10s
+  --list                display the list of supported vulnerabilities
+  --debug               exp echo request and responses, poc echo vuln lists
 ```
 
 ## 🐾 Examples
 Test all vulnerabilities poc mode
 ```
 python3 vulmap.py -u http://example.com
-```
-For RCE vuln, use the "id" command to test the vuln, because some linux does not have the "netstat -an" command
-```
-python3 vulmap.py -u http://example.com -c "id"
 ```
 
 Check http://example.com for struts2 vuln
@@ -76,13 +96,13 @@ python3 vulmap.py -u http://example.com:7001 -v CVE-2019-2729
 ```
 python3 vulmap.py -u http://example.com:7001 -m exp -v CVE-2019-2729
 ```
-Batch scan URLs in list.txt
+Export scan results to result.json
 ```
-python3 vulmap.py -f list.txt
+python3 vulmap.py -u http://example.com:7001 --output-json result.json
 ```
-Export scan results to result.txt
+# Call fofa api batch scan
 ```
-python3 vulmap.py -u http://example.com:7001 -o result.txt
+python3 vulmap.py --fofa app=Apache-Shiro
 ```
 
 ## 🍵 Vulnerabilitys List
@@ -123,7 +143,10 @@ Vulmap supported vulnerabilities are as follows
  | Drupal            | CVE-2018-7602    |  Y  |  Y  | < 7.59, < 8.5.3 (except 8.4.8) drupalgeddon2 rce            |
  | Drupal            | CVE-2019-6340    |  Y  |  Y  | < 8.6.10, drupal core restful remote code execution         |
  | Elasticsearch     | CVE-2014-3120    |  Y  |  Y  | < 1.2, elasticsearch remote code execution                  |
- | Elasticsearch     | CVE-2015-1427    |  Y  |  Y  | 1.4.0 < 1.4.3, elasticsearch remote code execution          |
+ | Elasticsearch     | CVE-2015-1427    |  Y  |  Y  | < 1.3.7, < 1.4.3, elasticsearch remote code execution       |
+ | Fastjson          | 1.2.24           |  Y  |  Y  | <= 1.2.24 fastjson parse object remote code execution       |
+ | Fastjson          | 1.2.47           |  Y  |  Y  | <= 1.2.47 fastjson autotype remote code execution           |
+ | Fsatjson          | 1.2.62           |  Y  |  Y  | <= 1.2.24 fastjson autotype remote code execution           |
  | Jenkins           | CVE-2017-1000353 |  Y  |  N  | <= 2.56, LTS <= 2.46.1, jenkins-ci remote code execution    |
  | Jenkins           | CVE-2018-1000861 |  Y  |  Y  | <= 2.153, LTS <= 2.138.3, remote code execution             |
  | Nexus OSS/Pro     | CVE-2019-7238    |  Y  |  Y  | 3.6.2 - 3.14.0, remote code execution vulnerability         |
@@ -141,6 +164,8 @@ Vulmap supported vulnerabilities are as follows
  | RedHat JBoss      | CVE-2010-0738    |  Y  |  Y  | 4.2.0 - 4.3.0, jmx-console deserialization any files upload |
  | RedHat JBoss      | CVE-2010-1428    |  Y  |  Y  | 4.2.0 - 4.3.0, web-console deserialization any files upload |
  | RedHat JBoss      | CVE-2015-7501    |  Y  |  Y  | 5.x, 6.x, jmxinvokerservlet deserialization any file upload |
+ | Spring Data       | CVE-2018-1273    |  Y  |  Y  | 1.13 - 1.13.10, 2.0 - 2.0.5, spring data commons rce        |
+ | Spring Cloud      | CVE-2019-3799    |  Y  |  Y  | 2.1.0-2.1.1, 2.0.0-2.0.3, 1.4.0-1.4.5, directory traversal  |
  | ThinkPHP          | CVE-2019-9082    |  Y  |  Y  | < 3.2.4, thinkphp rememberme deserialization rce            |
  | ThinkPHP          | CVE-2018-20062   |  Y  |  Y  | <= 5.0.23, 5.1.31, thinkphp rememberme deserialization rce  |
  +-------------------+------------------+-----+-----+-------------------------------------------------------------+
