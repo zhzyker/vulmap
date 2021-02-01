@@ -19,7 +19,7 @@ def version_check():
         version_res = r'blob-code blob-code-inner js-file-line">(.*)</td>'
         github_ver = re.findall(version_res, github_ver_request.text, re.S | re.M)[0]
         if version == github_ver:
-            print(now.timed(de=0) + color.yew_info() + color.yellow(" Currently the latest version: " + version))
+            print(now.timed(de=0) + color.yel_info() + color.yellow(" Currently the latest version: " + version))
         elif version < github_ver:
             print(now_warn + color.red(" The current version is: " + version + ", Latest version: " + github_ver))
             print(now_warn + color.red(" Go to github https://github.com/zhzyker/vulmap update"))
