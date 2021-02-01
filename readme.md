@@ -24,20 +24,25 @@ python3 vulmap.py -u http://example.com
 ```
 * 配置 Fofa Api && Shodan Api && Ceye
 若想使用fofa api调用资产需要修改 vulmap.py 中的配置信息：
-Fofa info: https://fofa.so/user/users/info
-Shodan key: https://account.shodan.io
-Ceye info: http://ceye.io/
+Fofa info: https://fofa.so/user/users/info  
+Shodan key: https://account.shodan.io  
+Ceye info: http://ceye.io/  
 
 ```
-globals.set_value("fofa_email", "xxxxxxxxxx")  # 把xxxxxxxxxx替换成fofa的邮箱
-globals.set_value("fofa_key", "xxxxxxxxxx")  # 把xxxxxxxxxx替换成fofa的key
+# 把xxxxxxxxxx替换成fofa的邮箱
+globals.set_value("fofa_email", "xxxxxxxxxx")  
+# 把xxxxxxxxxx替换成fofa的key
+globals.set_value("fofa_key", "xxxxxxxxxx")  
 ```
 ```
-globals.set_value("shodan_key", "xxxxxxxxxx")  # 把xxxxxxxxxx替换成自己shodan的key
+# 把xxxxxxxxxx替换成自己shodan的key
+globals.set_value("shodan_key", "xxxxxxxxxx")  
 ```
 ```
-globals.set_value("ceye_domain","xxxxxxxxxx")  # 把xxxxxxxxxx替换为自己的域名
-globals.set_value("ceye_token", "xxxxxxxxxx")  # 把xxxxxxxxxx替换自己ceye的token
+# 把xxxxxxxxxx替换为自己的域名
+globals.set_value("ceye_domain","xxxxxxxxxx")  
+# 把xxxxxxxxxx替换自己ceye的token
+globals.set_value("ceye_token", "xxxxxxxxxx")  
 ```
 
 ## 📺 video demo
