@@ -13,7 +13,10 @@ def ceye():
     ceye_token = globals.get_value("ceye_token")
     ceye_token = globals.get_value("ceye_token")
     api_url = "http://api.ceye.io/v1/records?type=dns&token=" + ceye_token
-    res = requests.get(api_url, headers=headers, timeout=timeout, verify=False)
-    if res.status_code != 200:
-        print(now.timed(de=0) + color.red_warn() + color.red(" Ceye.io: " + res.text))
-    return res.text
+    try:
+        res = requests.get(api_url, headers=headers, timeout=timeout, verify=False)
+        if res.status_code != 200:
+            print(now.timed(de=0) + color.red_warn() + color.red(" Ceye.io: " + res.text))
+        return res.text
+    except Exception:
+        return "Ceye.io connection failed"
