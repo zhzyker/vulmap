@@ -66,7 +66,7 @@ globals.set_value("ceye_token", "xxxxxxxxxx")
 * Twitter: https://twitter.com/zhzyker
 * WeChat: 微信群满200了，只能拉进群
 <p>
-    <img alt="QR-code" src="https://github.com/zhzyker/zhzyker/blob/main/my-wechat.jpg" width="20%" height="20%" style="max-width:100%;">
+    <img alt="QR-code" src="https://github.com/zhzyker/zhzyker/blob/main/vulmap-wechat-2.jpg" width="20%" height="20%" style="max-width:100%;">
 </p>
 
 ## 🔧 Options
