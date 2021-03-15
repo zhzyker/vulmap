@@ -4,7 +4,7 @@ from module import globals
 from module.time import now
 from module.color import color
 from module.output import output
-
+import re
 
 class Verification:
     @staticmethod
@@ -76,21 +76,27 @@ class Verification:
 verify = Verification()
 
 
+# def misinformation(req, md):  # 用来处理echo被错误返回时的误报，代码小巧作用甚大
+#     bad_1 = "echo%20" + md
+#     bad_2 = "echo%2520" + md
+#     bad_3 = "echo+" + md
+#     bad_4 = "echo_" + md
+#     bad_5 = "echo " + md
+#     if bad_1 in req:
+#         return "misinformation"
+#     elif bad_2 in req:
+#         return "misinformation"
+#     elif bad_3 in req:
+#         return "misinformation"
+#     elif bad_4 in req:
+#         return "misinformation"
+#     elif bad_5 in req:
+#         return "misinformation"
+#     else:
+#         return req
 def misinformation(req, md):  # 用来处理echo被错误返回时的误报，代码小巧作用甚大
-    bad_1 = "echo%20" + md
-    bad_2 = "echo%2520" + md
-    bad_3 = "echo+" + md
-    bad_4 = "echo_" + md
-    bad_5 = "echo " + md
-    if bad_1 in req:
-        return "misinformation"
-    elif bad_2 in req:
-        return "misinformation"
-    elif bad_3 in req:
-        return "misinformation"
-    elif bad_4 in req:
-        return "misinformation"
-    elif bad_5 in req:
+    bad = "echo.{0,10}"+md    # 使用正则来应对复杂的编码情况
+    if(re.search(bad,req)!=None):
         return "misinformation"
     else:
         return req
