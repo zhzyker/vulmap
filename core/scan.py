@@ -9,7 +9,7 @@ from payload.ApacheTomcat import ApacheTomcat
 from payload.Fastjson import Fastjson
 from payload.Elasticsearch import Elasticsearch
 from payload.Jenkins import Jenkins
-from payload.OracleWelogic import OracleWeblogic
+from payload.OracleWeblogic import OracleWeblogic
 from payload.Spring import Spring
 from payload.Nexus import Nexus
 from payload.RadHatJBoss import RedHatJBoss
