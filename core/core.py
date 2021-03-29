@@ -238,6 +238,7 @@ class Core(object):
 
     @staticmethod
     def scan_webapps(webapps_identify, thread_poc, thread_pool, gevent_pool, target):
+        webapps_identify = [x.lower() for x in webapps_identify]
         if r"weblogic" in webapps_identify or r"all" in webapps_identify:
             thread_poc.append(thread_pool.submit(scan.oracle_weblogic(target, gevent_pool)))
         if r"shiro" in webapps_identify or r"all" in webapps_identify:
