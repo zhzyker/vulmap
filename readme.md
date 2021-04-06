@@ -48,7 +48,7 @@ globals.set_value("ceye_token", "xxxxxxxxxx")
 ```
 
 ## 📑 Licenses
-在原有协议(https://github.com/zhzyker/vulmap/blob/main/LICENSE)中追加以下免责声明。若与原有协议冲突均以免责声明为准。  
+在原有协议[LICENSE](https://github.com/zhzyker/vulmap/blob/main/LICENSE)中追加以下免责声明。若与原有协议冲突均以免责声明为准。  
 
 本工具禁止进行未授权商业用途，禁止二次开发后进行未授权商业用途。  
 
