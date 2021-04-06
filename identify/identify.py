@@ -1,12 +1,13 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import requests
+from thirdparty import requests
+from module.api.dns import dns_request, dns_result
 import time
 from module.color import color
 from module.time import now
 from module import globals
 from module.md5 import random_md5
-from requests.packages import urllib3
+from thirdparty import urllib3
 urllib3.disable_warnings()
 
 
@@ -35,7 +36,7 @@ class Identify:
         start = Identify(url)
         start.flink(webapps_identify, resp, url)
         start.tomcat(webapps_identify, resp, url)
-        start.fastjson(webapps_identify)
+        start.fastjson(webapps_identify, url)
         start.elasticsearch(webapps_identify, resp, url)
         start.jenkins(webapps_identify, resp, url)
         start.weblogic(webapps_identify, resp, url)
@@ -46,6 +47,7 @@ class Identify:
         start.drupal(webapps_identify, resp, url)
         start.struts2(webapps_identify, resp, url)
         start.shiro(webapps_identify, resp, url)
+        start.druid(webapps_identify, resp, url)
         if webapps_identify:
             for a in webapps_identify:
                 print("\r{0}{1}".format(now.timed(de=0) + color.yel_info(), color.yellow(" The identification target is: " + a + "          ")))
@@ -56,7 +58,7 @@ class Identify:
 
     def flink(self, webapps_identify, resp, url):
         name = "Flink"
-        time.sleep(0.2)
+        time.sleep(0.1)
         Identify.identify_prt(name)
         try:
             if r"<flink-root></flink-root>" in resp.text:
@@ -64,9 +66,19 @@ class Identify:
         except:
             pass
 
+    def druid(self, webapps_identify, resp, url):
+        name = "Druid"
+        time.sleep(0.1)
+        Identify.identify_prt(name)
+        try:
+            if r"Apache Druid" in resp.text:
+                webapps_identify.append("druid")
+        except:
+            pass
+
     def shiro(self, webapps_identify, resp, url):
         name = "Shiro"
-        time.sleep(0.2)
+        time.sleep(0.1)
         Identify.identify_prt(name)
         headers = {'User-Agent': self.ua, 'Content-Type': "application/json"}
         cookies = {"rememberMe": "dGVzdAo="}
@@ -79,7 +91,7 @@ class Identify:
     
     def struts2(self, webapps_identify, resp, url):
         name = "Struts2"
-        time.sleep(0.2)
+        time.sleep(0.1)
         Identify.identify_prt(name)
         try:
             if r".do" in url:
@@ -91,7 +103,7 @@ class Identify:
 
     def drupal(self, webapps_identify, resp, url):
         name = "Drupal"
-        time.sleep(0.2)
+        time.sleep(0.1)
         Identify.identify_prt(name)
         try:
             if r"Drupal" in resp.headers['X-Generator']:
@@ -103,7 +115,7 @@ class Identify:
 
     def nexus(self, webapps_identify, resp, url):
         name = "Nexus"
-        time.sleep(0.2)
+        time.sleep(0.1)
         Identify.identify_prt(name)
         try:
             if r"Nexus Repository Manager" in resp.text:
@@ -115,7 +127,7 @@ class Identify:
 
     def jboss(self, webapps_identify, resp, url):
         name = "JBoss"
-        time.sleep(0.2)
+        time.sleep(0.1)
         Identify.identify_prt(name)
         try:
             if r"JBoss Wiki" in resp.text:
@@ -128,7 +140,7 @@ class Identify:
 
     def tomcat(self, webapps_identify, resp, url):
         name = "Tomcat"
-        time.sleep(0.2)
+        time.sleep(0.1)
         Identify.identify_prt(name)
         try:
             if r"Apache Tomcat" in resp.text:
@@ -138,7 +150,7 @@ class Identify:
 
     def elasticsearch(self, webapps_identify, resp, url):
         name = "Elasticsearch"
-        time.sleep(0.2)
+        time.sleep(0.1)
         Identify.identify_prt(name)
         try:
             if r"You Know, for Search" in resp.text and r"lucene_version" in resp.text and r"tagline" in resp.text:
@@ -148,7 +160,7 @@ class Identify:
 
     def jenkins(self, webapps_identify, resp, url):
         name = "Jenkins"
-        time.sleep(0.2)
+        time.sleep(0.1)
         Identify.identify_prt(name)
         try:
             if r"X-Jenkins" in resp.headers:
@@ -158,7 +170,7 @@ class Identify:
 
     def weblogic(self, webapps_identify, resp, url):
         name = "Weblogic"
-        time.sleep(0.2)
+        time.sleep(0.1)
         Identify.identify_prt(name)
         try:
             if r"From RFC 2068" in resp.text and r"Hypertext Transfer Protocol" in resp.text:
@@ -168,7 +180,7 @@ class Identify:
 
     def solr(self, webapps_identify, resp, url):
         name = "Solr"
-        time.sleep(0.2)
+        time.sleep(0.1)
         Identify.identify_prt(name)
         try:
             if r"Solr Admin" in resp.text:
@@ -178,7 +190,7 @@ class Identify:
 
     def spring(self, webapps_identify, resp, url):
         name = "Spring"
-        time.sleep(0.2)
+        time.sleep(0.1)
         Identify.identify_prt(name)
         try:
             if r"timestamp" in resp.text and r"status" in resp.text and r"path" in resp.text and r"message" in resp.text:
@@ -206,31 +218,30 @@ class Identify:
         except:
             pass
 
-    def fastjson(self, webapps_identify):
+    def fastjson(self, webapps_identify, url):
         name = "Fastjson"
         Identify.identify_prt(name)
-        md = random_md5()
-        dns = md + "." + self.ceye_domain
+        dns = dns_request()
         payload1 = '{"e":{"@type":"java.net.Inet4Address","val":"%s"}}' %dns
         payload2 = '{"@type":"java.net.Inet4Address","val":"%s"}' %dns
         payload3 = '{{"@type":"java.net.URL","val":"http://%s"}:"x"}' %dns
         payload4 = '{"@type":"com.alibaba.fastjson.JSONObject", {"@type": "java.net.URL", "val":"%s"}}""}' %dns
         payload5 = '{"a":"'
-        headers = {'User-Agent': self.ua, 'Content-Type': "application/json"}
+        headers = {'User-Agent': self.ua, 'Content-Type': "application/json", 'Connection': 'close'}
         try:
-            requests.post(self.url, data=payload1, headers=headers, timeout=self.timeout, verify=False)
-            requests.post(self.url, data=payload2, headers=headers, timeout=self.timeout, verify=False)
-            requests.post(self.url, data=payload3, headers=headers, timeout=self.timeout, verify=False)
-            requests.post(self.url, data=payload4, headers=headers, timeout=self.timeout, verify=False)
-            request = requests.get(self.ceye_api + self.ceye_token)
-            if md in request.text:
-                webapps_identify.append("fastjson")
+            request = requests.post(url, data=payload5, headers=headers, timeout=self.timeout, verify=False)
+            if r"nested exception is com.alibaba.fastjson.JSONException:" in request.text:
+                if r"application/json" == request.headers['Content-Type']:
+                    webapps_identify.append("fastjson")
             else:
-                request = requests.post(self.url, data=payload5, headers=headers, timeout=self.timeout, verify=False)
-                if r"nested exception is com.alibaba.fastjson.JSONException:" in request.text:
-                    if r"application/json" == request.headers['Content-Type']:
-                        webapps_identify.append("fastjson")
-        except:
+                requests.post(url, data=payload1, headers=headers, timeout=self.timeout, verify=False)
+                requests.post(url, data=payload2, headers=headers, timeout=self.timeout, verify=False)
+                requests.post(url, data=payload3, headers=headers, timeout=self.timeout, verify=False)
+                requests.post(url, data=payload4, headers=headers, timeout=self.timeout, verify=False)
+                if dns_result(dns):
+                    webapps_identify.append("fastjson")
+                    webapps_identify.append("fastjson [" + dns + "]")
+        except Exception as error:
             pass
 
     @staticmethod
