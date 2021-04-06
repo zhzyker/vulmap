@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import re
 from module import globals
 from module.time import now
 from module.color import color
 from module.output import output
-import re
+
 
 class Verification:
     @staticmethod
@@ -53,13 +54,29 @@ class Verification:
     @staticmethod
     def timeout_print(prt_name):
         delay = globals.get_value("DELAY")  # 获取全局变量DELAY
-        print(now.timed(de=delay) + color.red_warn() + color.cyan(" " + prt_name + " check failed because timeout !!!"))
-
+        debug = globals.get_value("DEBUG")  # 获取全局变量DEBUG
+        if debug == "debug":
+            print(now.timed(de=delay) + color.red_warn() +
+                  color.cyan(" " + prt_name + " check failed because timeout !!!"))
+        else:
+            print("\r{0}{1}{2}".format(now.timed(de=delay),
+                                       color.red_warn(),
+                                       color.cyan(" " + prt_name + " connection timeout !!!")),
+                  end="                            \r",
+                  flush=True)
     @staticmethod
     def connection_print(prt_name):
         delay = globals.get_value("DELAY")  # 获取全局变量DELAY
-        print(now.timed(de=delay) + color.red_warn() + color.cyan(
-            " " + prt_name + " check failed because unable to connect !!!"))
+        debug = globals.get_value("DEBUG")  # 获取全局变量DEBUG
+        if debug == "debug":
+            print(now.timed(de=delay) + color.red_warn() +
+                  color.cyan(" " + prt_name + " check failed because unable to connect !!!"))
+        else:
+            print("\r{0}{1}{2}".format(now.timed(de=delay),
+                                       color.red_warn(),
+                                       color.cyan(" " + prt_name + " connection failed !!!")),
+                  end="                            \r",
+                  flush=True)
 
     @staticmethod
     def error_print(prt_name):
@@ -70,15 +87,17 @@ class Verification:
         else:
             print("\r{0}{1}{2}".format(now.timed(de=delay),
                                        color.magenta("[-] The target no "),
-                                       color.magenta(prt_name)), end="                            \r", flush=True)
+                                       color.magenta(prt_name)),
+                  end="                            \r",
+                  flush=True)
 
 
 verify = Verification()
 
 
 def misinformation(req, md):  # 用来处理echo被错误返回时的误报，代码小巧作用甚大
-    bad = "echo.{0,10}"+md    # 使用正则来应对复杂的编码情况
-    if(re.search(bad,req)!=None):
+    bad = "echo.{0,10}" + md    # 使用正则来应对复杂的编码情况
+    if(re.search(bad, req) != None):
         return "misinformation"
     else:
         return req

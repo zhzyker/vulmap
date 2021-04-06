@@ -11,7 +11,7 @@ from module.proxy import proxy_set
 from module.allcheck import url_check
 from module.allcheck import survival_check
 from module.api.fofa import fofa
-from module.api.ceye import ceye
+from module.api.dns import dns_result, dns_request
 from module.api.shodan import shodan_api
 from core.scan import scan
 from core.exploit import exploit
@@ -38,9 +38,11 @@ class Core(object):
         if args.debug is False:  # 判断是否开启--debug功能
             print(now.timed(de=delay) + color.yel_info() + color.yellow(" Using debug mode to echo debug information"))
             globals.set_value("DEBUG", "debug")  # 设置全局变量DEBUG
-        ceye()  # 测试ceye连接性
-
-
+        #ceye_api()  # 测试ceye连接性
+        if dns_request(): # 初始化dnslog, 并判断是否可用
+            pass
+        else:
+            print(now_warn + color.red(" Dnslog platform (hyuga.co dnslog.cn ceye.io) is not available"))
         if args.O_TEXT:  # 判断是否text输出
             if os.path.isfile(args.O_TEXT):  # 判断text输出文件是否冲突
                 print(now.timed(de=delay) + color.red_warn() + color.red(" The json file: [" + args.O_TEXT + "] already exists"))
@@ -238,6 +240,7 @@ class Core(object):
 
     @staticmethod
     def scan_webapps(webapps_identify, thread_poc, thread_pool, gevent_pool, target):
+        # 自动处理大小写的webapps类型: https://github.com/zhzyker/vulmap/commit/5e1ee00b0598b5dd5b9898a01fabcc4b84dc4e8c
         webapps_identify = [x.lower() for x in webapps_identify]
         if r"weblogic" in webapps_identify or r"all" in webapps_identify:
             thread_poc.append(thread_pool.submit(scan.oracle_weblogic(target, gevent_pool)))
@@ -271,6 +274,22 @@ class Core(object):
             thread_poc.append(thread_pool.submit(scan.drupal(target, gevent_pool)))
         if r"struts2" in webapps_identify or r"all" in webapps_identify:
             thread_poc.append(thread_pool.submit(scan.apache_strtus2(target, gevent_pool)))
+        if r"druid" in webapps_identify or r"all" in webapps_identify:
+            thread_poc.append(thread_pool.submit(scan.apache_druid(target, gevent_pool)))
+        if r"laravel" in webapps_identify or r"all" in webapps_identify:
+            thread_poc.append(thread_pool.submit(scan.laravel(target, gevent_pool)))
+        if r"vmware" in webapps_identify or r"all" in webapps_identify:
+            thread_poc.append(thread_pool.submit(scan.vmware(target, gevent_pool)))
+        if r"saltstack" in webapps_identify or r"all" in webapps_identify:
+            thread_poc.append(thread_pool.submit(scan.saltstack(target, gevent_pool)))
+        if r"nodejs" in webapps_identify or r"all" in webapps_identify:
+            thread_poc.append(thread_pool.submit(scan.nodejs(target, gevent_pool)))
+        if r"exchange" in webapps_identify or r"all" in webapps_identify:
+            thread_poc.append(thread_pool.submit(scan.exchange(target, gevent_pool)))
+        if r"bigip" in webapps_identify or r"all" in webapps_identify:
+            thread_poc.append(thread_pool.submit(scan.big_ip(target, gevent_pool)))
+        if r"ofbiz" in webapps_identify or r"all" in webapps_identify:
+            thread_poc.append(thread_pool.submit(scan.apache_ofbiz(target, gevent_pool)))
 
 
 core = Core()
