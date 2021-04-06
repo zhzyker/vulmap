@@ -1,0 +1,8 @@
+[flake8]
+# https://flake8.readthedocs.io/en/2.0/warnings.html
+# E261 - at least two spaces before inline comment
+# E265 - block comment should start with '#'
+# W503 - line break occured before a binary operator
+# F811 - redefinition of unused name
+# F401 - name imported but unused
+ignore = E261,E265,W503,F811,F401

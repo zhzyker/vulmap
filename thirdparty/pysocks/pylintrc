@@ -1,0 +1,22 @@
+[MASTER]
+jobs=4
+extension-pkg-whitelist=
+#ignore=invalid_import.py
+
+[TYPECHEK]
+ignored-modules=
+
+[MESSAGES CONTROL]
+disable=R,I,fixme,missing-docstring
+
+[REPORTS]
+reports=no
+
+[BASIC]
+method-rgx=([a-z_][a-z0-9_]{2,30}|test_[a-z_][a-z0-9_]{2,50})$
+function-rgx=([a-z_][a-z0-9_]{2,30}|test_[a-z_][a-z0-9_]{2,50})$
+variable-rgx=[a-z_][a-z0-9_]{1,30}$
+argument-rgx=[a-z_][a-z0-9_]{1,30}$
+
+[FORMAT]
+max-line-length=79
