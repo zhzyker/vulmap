@@ -146,7 +146,6 @@ def dns_result(md):
         if md in dns.text:
             return md
 
-    print(dnslog)
     if dnslog == "auto":
         au_dns = globals.get_value("AUTO_DNSLOG")
         if au_dns == "hyuga":
