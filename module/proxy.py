@@ -3,9 +3,9 @@
 import re
 import sys
 import json
-import socks
+from thirdparty.pysocks import socks
 import socket
-import requests
+from thirdparty import requests
 from module import globals
 from module.time import now
 from module.color import color

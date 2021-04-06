@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-from colorama import init, Fore, Style
+from thirdparty.colorama import init
+from thirdparty.colorama import Fore, Back, Style, Cursor
 init(autoreset=True)
 
 

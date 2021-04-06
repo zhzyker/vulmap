@@ -17,7 +17,7 @@ def output(types, item):
         if o_text and types == "text":
             output_text(o_text, item)
         elif o_json and types == "json":
-            output_json(o_json, item)
+            output_json(o_json, item)   
         else:
             pass
     except Exception as error:
