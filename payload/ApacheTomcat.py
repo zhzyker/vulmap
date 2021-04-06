@@ -1,21 +1,21 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import socket
-import requests
+from thirdparty import requests
 import threading
 from module import globals
 from core.verify import verify
 from module.md5 import random_md5
-from requests.packages import urllib3
 from urllib.parse import urlparse
-from requests_toolbelt.utils import dump
-from ajpy.ajp import AjpResponse, AjpForwardRequest, AjpBodyRequest, NotFoundException
-urllib3.disable_warnings()
+from thirdparty.requests_toolbelt.utils import dump
+from thirdparty.ajpy.ajp import AjpResponse, AjpForwardRequest, AjpBodyRequest
 
 
 class ApacheTomcat():
     def __init__(self, url):
         self.url = url
+        if self.url[-1] == "/":
+            self.url = self.url[:-1]
         self.raw_data = None
         self.vul_info = {}
         self.ua = globals.get_value("UA")  # 获取全局变量UA

