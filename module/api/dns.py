@@ -16,11 +16,7 @@ def dns_request():
     def ceye_io():
         ceye_host = globals.get_value("ceye_domain")
         ceye_token = globals.get_value("ceye_token")
-        if r"xxxxxx" in ceye_host:
-            if r"xxxxxx" in ceye_token:
-                print(now.timed(de=0) + color.red_warn() + color.red(" Ceye.io domain and token are incorrectly configured"))
-                exit(0)
-        else:
+        if r"xxxxxx" not in ceye_host:
             dns_host = random_md5() + "." + ceye_host
             return dns_host
     def dnslog_cn():
@@ -42,11 +38,10 @@ def dns_request():
                 globals.set_value("DNS_DNSLOG_HOST", dns.text)
                 return dns_host
             else:
-
                 dns_host = random_md5() + "." + globals.get_value("DNS_DNSLOG_HOST")
                 return dns_host
         except Exception:
-            pass
+            return "error"
     def hyuga_co():
         headers_hyuga = {
             'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
@@ -77,32 +72,40 @@ def dns_request():
     if dnslog == "auto":
         if hyuga_co():  # 判断dns平台是否可用时调用一次，仅存活测试
             dns_req = hyuga_co()
-            globals.set_value("DNSLOG", "hyuga")
+            globals.set_value("AUTO_DNSLOG", "hyuga")
             return dns_req
         elif dnslog_cn():  # 判断dns平台是否可用时调用一次，仅存活测试
             dns_req = dnslog_cn()
-            globals.set_value("DNSLOG", "dnslog")
+            globals.set_value("AUTO_DNSLOG", "dnslog")
             return dns_req
         elif ceye_io():
             dns_req = ceye_io()
+            globals.set_value("AUTO_DNSLOG", "ceye")
             return dns_req
         else:
             print(now.timed(de=0) + color.red_warn() + color.red(" The dnslog platform cannot be used, please check the current network"))
+            return "no dnslog"
     elif r"hyuga" in dnslog:
         dns_req = hyuga_co()
-        globals.set_value("DNSLOG", "hyuga")
+        #globals.set_value("DNSLOG", "hyuga")
         return str(dns_req)
     elif r"dnslog" in dnslog:
         dns_req = dnslog_cn()
-        globals.set_value("DNSLOG", "dnslog")
+
+        #globals.set_value("DNSLOG", "dnslog")
         return dns_req
     elif r"ceye" in dnslog:
+        ceye_host = globals.get_value("ceye_domain")
+        if r"xxxxxx" in ceye_host:
+            print(now.timed(de=0) + color.red_warn() + color.red(" Ceye.io domain and token are incorrectly configured"))
+            exit(0)
         dns_req = ceye_io()
-        globals.set_value("DNSLOG", "ceye")
+        #globals.set_value("DNSLOG", "ceye")
         return dns_req
     else:
-        print(now.timed(de=0) + color.red_warn() + color.red(" Only supports (hyuga, dnslog, ceye)"))
-        exit(0)
+        return "no dnslog"
+        #print(now.timed(de=0) + color.red_warn() + color.red(" Only supports (hyuga, dnslog, ceye)"))
+        #exit(0)
 
 def dns_result(md):
     timeout = globals.get_value("TIMEOUT")  # 获取全局变量UA
@@ -143,15 +146,30 @@ def dns_result(md):
         if md in dns.text:
             return md
 
-    if r"hyuga" in dnslog:
-        dns_req = hyuga_co(md)
-        return dns_req
-    elif r"dnslog" in dnslog:
-        dns_req = dnslog_cn(md)
-        return dns_req
-    elif r"ceye" in dnslog:
-        dns_req = ceye_io(md)
-        return dns_req
+    print(dnslog)
+    if dnslog == "auto":
+        au_dns = globals.get_value("AUTO_DNSLOG")
+        print(au_dns)
+        if au_dns == "hyuga":
+            print("ok")
+            dns_req = hyuga_co(md)
+            return dns_req
+        elif au_dns == "dnslog":
+            dns_req = dnslog_cn(md)
+            return dns_req
+        elif au_dns == "ceye":
+            dns_req = ceye_io(md)
+            return dns_req
     else:
-        pass
-        # print("error ???")
+        if r"hyuga" in dnslog:
+            dns_req = hyuga_co(md)
+            return dns_req
+        elif r"dnslog" in dnslog:
+            dns_req = dnslog_cn(md)
+            return dns_req
+        elif r"ceye" in dnslog:
+            dns_req = ceye_io(md)
+            return dns_req
+        else:
+            pass
+            # print("error ???")
