@@ -1,11 +1,2 @@
-lxml
-requests
-ajpy
-colorama
 gevent>=20.9
-greenlet>=0.4.17
-requests_toolbelt
-beautifulsoup4
 pycryptodome
-PySocks
-shodan
