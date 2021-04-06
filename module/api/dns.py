@@ -149,9 +149,7 @@ def dns_result(md):
     print(dnslog)
     if dnslog == "auto":
         au_dns = globals.get_value("AUTO_DNSLOG")
-        print(au_dns)
         if au_dns == "hyuga":
-            print("ok")
             dns_req = hyuga_co(md)
             return dns_req
         elif au_dns == "dnslog":
