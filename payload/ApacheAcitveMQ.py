@@ -2,19 +2,20 @@
 # -*- coding: utf-8 -*-
 import re
 import base64
-import requests
+from thirdparty import requests
+from thirdparty.requests.compat import urljoin
 import threading
 from core.verify import verify
 from module import globals
 from module.md5 import random_md5
-from requests.packages import urllib3
-from requests_toolbelt.utils import dump
-urllib3.disable_warnings()
+from thirdparty.requests_toolbelt.utils import dump
 
 
 class ApacheActiveMQ():
     def __init__(self, url):
         self.url = url
+        if self.url[-1] == "/":
+            self.url = self.url[:-1]
         self.raw_data = None
         self.vul_info = {}
         self.ua = globals.get_value("UA")  # 获取全局变量UA
@@ -120,8 +121,8 @@ class ApacheActiveMQ():
                         'User-Agent': self.ua,
                         'Authorization': 'Basic ' + self.p
                     }
-                    self.request = requests.get(self.url + "/admin/test/systemProperties.jsp", headers=self.headers_base64,
-                                                timeout=self.timeout, verify=False)
+                    url = urljoin(self.url, "/admin/test/systemProperties.jsp")
+                    self.request = requests.get(url, headers=self.headers_base64, timeout=self.timeout, verify=False)
                     if self.request.status_code == 200:
                         self.path = \
                             re.findall('<td class="label">activemq.home</td>.*?<td>(.*?)</td>', self.request.text, re.S)[0]
@@ -170,8 +171,8 @@ class ApacheActiveMQ():
                     'User-Agent': self.ua,
                     'Authorization': 'Basic ' + self.p
                 }
-                self.request = requests.get(self.url + "/admin/test/systemProperties.jsp", headers=self.headers_base64,
-                                            timeout=self.timeout, verify=False)
+                url = urljoin(self.url, "/admin/test/systemProperties.jsp")
+                self.request = requests.get(url, headers=self.headers_base64, timeout=self.timeout, verify=False)
                 if self.request.status_code == 200:
                     self.path = \
                         re.findall('<td class="label">activemq.home</td>.*?<td>(.*?)</td>', self.request.text, re.S)[0]

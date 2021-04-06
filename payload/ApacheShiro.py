@@ -2,16 +2,13 @@
 # -*- coding: utf-8 -*-
 import uuid
 import base64
-import requests
 import threading
 from module import globals
 from Crypto.Cipher import AES
 from core.verify import verify
+from thirdparty import requests
 from module.md5 import random_md5
-from requests.packages import urllib3
-from requests_toolbelt.utils import dump
-urllib3.disable_warnings()
-
+from thirdparty.requests_toolbelt.utils import dump
 
 class ApacheShiro:
     def __init__(self, url):

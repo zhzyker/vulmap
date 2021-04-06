@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import requests
+from thirdparty import requests
+from thirdparty.requests.compat import urljoin
 import threading
 from core.verify import verify
 from module import globals
 from module.md5 import random_md5
-from requests.packages import urllib3
-from requests_toolbelt.utils import dump
-urllib3.disable_warnings()
+from thirdparty.requests_toolbelt.utils import dump
 
 
 class ApacheFlink():
@@ -17,7 +16,8 @@ class ApacheFlink():
             self.url = self.url[:-12]
         if r"/#/overview" in self.url:
             self.url = self.url[:-11]
-
+        if self.url[-1] == "/":
+            self.url = self.url[:-1]
         self.raw_data = None
         self.vul_info = {}
         self.ua = globals.get_value("UA")  # 获取全局变量UA

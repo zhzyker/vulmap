@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import time
-import requests
+from thirdparty import requests
 import threading
 import http.client
 from module import globals
@@ -9,23 +9,20 @@ from core.verify import verify
 from core.verify import misinformation
 from module.md5 import random_md5
 from urllib.parse import urlencode
-from requests.packages import urllib3
 from urllib.parse import urlparse, quote
-from requests_toolbelt.utils import dump
-urllib3.disable_warnings()
+from thirdparty.requests_toolbelt.utils import dump
 
 
 class RedHatJBoss():
     def __init__(self, url):
         self.url = url
+        if self.url[-1] == "/":
+            self.url = self.url[:-1]
         self.raw_data = None
         self.vul_info = {}
         self.ua = globals.get_value("UA")  # 获取全局变量UA
         self.timeout = globals.get_value("TIMEOUT")  # 获取全局变量UA
         self.headers = globals.get_value("HEADERS")  # 获取全局变量HEADERS
-        self.ceye_domain = globals.get_value("ceye_domain")
-        self.ceye_token = globals.get_value("ceye_token")
-        self.ceye_api = globals.get_value("ceye_api")
         self.threadLock = threading.Lock()
         self.name = random_md5()[:-20]
         self.getipport = urlparse(self.url)

