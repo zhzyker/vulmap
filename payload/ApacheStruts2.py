@@ -645,7 +645,7 @@ class ApacheStruts2():
             if md in misinformation(self.req.text, md):
                 self.vul_info["vul_data"] = dump.dump_all(self.req).decode('utf-8', 'ignore')
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
-                self.vul_info["vul_payd"] = self.payload
+                self.vul_info["vul_payd"] = self.payload_s2_048.replace("RECOMMAND", cmd)
                 self.vul_info["prt_info"] = "[rce] [cmd: " + cmd + "]"
             verify.scan_print(self.vul_info)
         except requests.exceptions.Timeout:
@@ -808,7 +808,7 @@ class ApacheStruts2():
         try:
             self.req = requests.get(self.url_061 + self.payload, headers=self.headers, timeout=self.timeout, verify=False)
             req = re.findall(r'<a id="(.*)', self.req.text)[0]
-            if misinformation(req, md):
+            if md in misinformation(req, md):
                 self.vul_info["vul_data"] = dump.dump_all(self.req).decode('utf-8', 'ignore')
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
                 self.vul_info["vul_payd"] = self.payload
