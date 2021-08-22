@@ -6,6 +6,7 @@ from module.color import color
 from module.time import now
 from module.md5 import random_md5
 import json
+import time
 
 
 def dns_request():
@@ -108,6 +109,7 @@ def dns_request():
         #exit(0)
 
 def dns_result(md):
+    time.sleep(1)
     timeout = globals.get_value("TIMEOUT")  # 获取全局变量UA
     dnslog = globals.get_value("DNSLOG")  # 获取全局变量DNSLOG，用于判断dnslog平台类型
     def ceye_io(md):
