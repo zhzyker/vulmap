@@ -48,6 +48,8 @@ class Identify:
         start.struts2(webapps_identify, resp, url)
         start.shiro(webapps_identify, resp, url)
         start.druid(webapps_identify, resp, url)
+        start.eyou(webapps_identify, resp, url)
+        start.coremail(webapps_identify, resp, url)
         if webapps_identify:
             for a in webapps_identify:
                 print("\r{0}{1}".format(now.timed(de=0) + color.yel_info(), color.yellow(" The identification target is: " + a + "          ")))
@@ -229,10 +231,15 @@ class Identify:
         payload5 = '{"a":"'
         headers = {'User-Agent': self.ua, 'Content-Type': "application/json", 'Connection': 'close'}
         try:
-            request = requests.post(url, data=payload5, headers=headers, timeout=self.timeout, verify=False)
+            try:
+                request = requests.post(url, data=payload5, headers=headers, timeout=self.timeout, verify=False)
+            except:
+                pass
             if r"nested exception is com.alibaba.fastjson.JSONException:" in request.text:
                 if r"application/json" == request.headers['Content-Type']:
                     webapps_identify.append("fastjson")
+            elif r"application/json" in request.headers['Content-Type']:
+                webapps_identify.append("fastjson")
             else:
                 requests.post(url, data=payload1, headers=headers, timeout=self.timeout, verify=False)
                 requests.post(url, data=payload2, headers=headers, timeout=self.timeout, verify=False)
@@ -241,6 +248,26 @@ class Identify:
                 if dns_result(dns):
                     webapps_identify.append("fastjson")
                     webapps_identify.append("fastjson [" + dns + "]")
+        except Exception as error:
+            pass
+
+    def eyou(self, webapps_identify, resp, url):
+        name = "Eyou"
+        time.sleep(0.1)
+        Identify.identify_prt(name)
+        try:
+            if r"eyou.net" in resp.text or r"eYouMail" in resp.text or r"eYou.net" in resp.text:
+                webapps_identify.append("eyou")
+        except Exception as error:
+            pass
+
+    def coremail(self, webapps_identify, resp, url):
+        name = "CoreMail"
+        time.sleep(0.1)
+        Identify.identify_prt(name)
+        try:
+            if r"Coremail" in resp.text:
+                webapps_identify.append("coremail")
         except Exception as error:
             pass
 
