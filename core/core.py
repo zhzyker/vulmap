@@ -2,10 +2,13 @@
 # -*- coding: utf-8 -*-
 import os
 from gevent import joinall
+
 from module import globals
 from module.time import now
 from module.color import color
 from module.output import output
+from module.dismap import dismap
+from module.dismap import dismap_getwebapps
 from module.banner import vul_list
 from module.proxy import proxy_set
 from module.allcheck import url_check
@@ -31,6 +34,7 @@ class Core(object):
         if args.list is False:  # 判断是否显示漏洞列表
             print(now.timed(de=0) + color.yel_info() + color.yellow(" List of supported vulnerabilities"))
             print(vul_list())
+            exit(0)
         if args.thread_num != 10:  # 判断是否为默认线程
             print(now.timed(de=0) + color.yel_info() + color.yellow(" Custom thread number: " + str(args.thread_num)))
         if args.vul is not None:  # 判断是否-v进行漏洞利用
@@ -161,10 +165,22 @@ class Core(object):
                 with open(target, 'r') as _:  # 打开目标文件
                     for line in _:  # 用for循环读取文件
                         line = line.strip()  # 过滤杂质
-                        if line:  # 判断是否结束
-                            target_list.append(line)  # 读取到的目标加入字典准备扫描
+                        get_line = dismap(line)
+                        if get_line == "######":
+                            target_num = target_num - 1
+                            continue
+                        if globals.get_value("DISMAP") == "true":
+                            dismap_webapps = dismap_getwebapps(line)
+                        if get_line:  # 判断是否结束
+                            if globals.get_value("DISMAP") == "true":
+                                if dismap_webapps is None:
+                                    continue
+                                else:
+                                    print(now.timed(de=0) + color.yel_info() +
+                                        " The result of dismap identifiy is " + color.yellow(dismap_webapps))
+                            target_list.append(get_line)  # 读取到的目标加入字典准备扫描
                             now_num += 1  # 读取到之后当前数量+1
-                            furl = line
+                            furl = get_line
                             furl = url_check(furl)  # url格式检测
                             output("text", "[*] " + furl)  # 丢给output模块判断是否输出文件
                             if survival_check(furl) == "f":  # 如果存活检测失败就跳过
@@ -176,7 +192,10 @@ class Core(object):
                                 print(now.timed(de=0) + color.yel_info() + color.yellow(
                                     " Current:[" + str(now_num) + "] Total:[" + str(
                                         target_num) + "] Scanning target: " + furl))
-                            if webapps is None:  # 判断是否要进行指纹识别
+
+                            if globals.get_value("DISMAP") == "true" and webapps is None:
+                                webapps_identify.append(dismap_getwebapps(line))
+                            elif webapps is None:  # 判断是否要进行指纹识别
                                 webapps_identify.clear()  # 可能跟单个url冲突需要清理字典
                                 Identify.start(furl, webapps_identify)  # 识别指纹
                                 # print(webapps_identify)
@@ -198,6 +217,8 @@ class Core(object):
                             core.scan_webapps(webapps_identify, thread_poc, thread_pool, gevent_pool, furl)  # 开扫
                             joinall(gevent_pool)  # 运行协程池
                             wait(thread_poc, return_when=ALL_COMPLETED)  # 等待所有多线程任务运行完
+                            if globals.get_value("DISMAP") == "true" and webapps is None:
+                                webapps_identify.clear()
                     print(now.timed(de=0) + color.yel_info() + color.yellow(" Scan completed and ended                             "))
             elif target_type == "fofa" or target_type == "shodan":  # ======================================================= 第三种调用fofa api
                 total = len(target)  # fofa api的总数，不出意外100个
@@ -229,7 +250,8 @@ class Core(object):
                             " Current:[" + str(now_num) + "] Total:[" + str(
                                 total) + "] Scanning target: " + fofa_target))
                     if webapps is None:  # 需要指纹识别
-                        Identify.start(target, webapps_identify)  # 是否需要进行指纹识别
+                        webapps_identify.clear()
+                        Identify.start(fofa_target, webapps_identify)  # 是否需要进行指纹识别
                     core.scan_webapps(webapps_identify, thread_poc, thread_pool, gevent_pool, fofa_target)
                     joinall(gevent_pool)  # 运行协程池
                     wait(thread_poc, return_when=ALL_COMPLETED)  # 等待所有多线程任务运行完
@@ -242,6 +264,8 @@ class Core(object):
     def scan_webapps(webapps_identify, thread_poc, thread_pool, gevent_pool, target):
         # 自动处理大小写的webapps类型: https://github.com/zhzyker/vulmap/commit/5e1ee00b0598b5dd5b9898a01fabcc4b84dc4e8c
         webapps_identify = [x.lower() for x in webapps_identify]
+        if globals.get_value("DISMAP") == "true":
+            webapps_identify = ','.join(webapps_identify)
         if r"weblogic" in webapps_identify or r"all" in webapps_identify:
             thread_poc.append(thread_pool.submit(scan.oracle_weblogic(target, gevent_pool)))
         if r"shiro" in webapps_identify or r"all" in webapps_identify:
@@ -290,6 +314,15 @@ class Core(object):
             thread_poc.append(thread_pool.submit(scan.big_ip(target, gevent_pool)))
         if r"ofbiz" in webapps_identify or r"all" in webapps_identify:
             thread_poc.append(thread_pool.submit(scan.apache_ofbiz(target, gevent_pool)))
-
+        if r"qianxin" in webapps_identify or r"all" in webapps_identify:
+            thread_poc.append(thread_pool.submit(scan.qiaixin(target, gevent_pool)))
+        if r"ruijie" in webapps_identify or r"all" in webapps_identify:
+            thread_poc.append(thread_pool.submit(scan.ruijie(target, gevent_pool)))
+        if r"eyou" in webapps_identify or r"all" in webapps_identify:
+            thread_poc.append(thread_pool.submit(scan.eyou(target, gevent_pool)))
+        if r"coremail" in webapps_identify or r"all" in webapps_identify:
+            thread_poc.append(thread_pool.submit(scan.coremail(target, gevent_pool)))
+        if r"ecology" in webapps_identify or r"all" in webapps_identify:
+            thread_poc.append(thread_pool.submit(scan.ecology(target, gevent_pool)))
 
 core = Core()
