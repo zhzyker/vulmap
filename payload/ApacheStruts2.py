@@ -845,7 +845,7 @@ class ApacheStruts2():
         self.payload = self.payload_s2_devMode.replace("RECOMMAND", cmd)
         try:
             self.req = requests.get(self.url + self.payload, headers=self.headers, timeout=self.timeout, verify=False, allow_redirects=False)
-            if md in misinformation(self.req, md):
+            if md in misinformation(self.req.text, md):
                 self.vul_info["vul_data"] = dump.dump_all(self.req).decode('utf-8', 'ignore')
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
                 self.vul_info["vul_payd"] = self.payload
