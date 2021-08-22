@@ -37,7 +37,7 @@ def arg():
                          "all, activemq, flink, shiro, solr, struts2, tomcat, unomi, drupal\n  "
                          "elasticsearch, fastjson, jenkins, laravel, nexus, weblogic, jboss\n  "
                          "spring, thinkphp, druid, exchange, nodejs, saltstack, vmware\n  "
-                         "bigip, ofbiz")
+                         "bigip, ofbiz, coremail, ecology, eyou, qianxin, ruijie")
     example = parser.add_argument_group("examples")
     example.add_argument(action='store_false',
                          dest="python3 vulmap.py -u http://example.com\n  "
