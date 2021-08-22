@@ -1,6 +1,6 @@
 ## 🌟 Vulmap - Web vulnerability scanning and verification tools
 <a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/python-3.8+-blueviolet"></a>
-<a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/Version-vulmap 0.7-yellow"></a>
+<a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/Version-vulmap 0.8-yellow"></a>
 <a href="https://github.com/zhzyker/vulmap"><img alt="Release" src="https://img.shields.io/badge/LICENSE-GPL-ff69b4"></a>
 ![GitHub Repo stars](https://img.shields.io/github/stars/zhzyker/vulmap?color=gree)
 ![GitHub forks](https://img.shields.io/github/forks/zhzyker/vulmap)
@@ -12,6 +12,9 @@
 > Vulmap 将漏洞扫描与验证（漏洞利用）结合到了一起, 及大程度便于测试人员在发现漏洞后及时进行下一步操作, 工具追求于于高效、便捷  
 高效: 逐步开发中慢慢引入了批量扫描、Fofa、Shodan 批量扫描, 且支持多线程默认开启协程, 以最快的速度扫描大量资产  
 便捷: 发现漏洞即可利用, 大量资产扫描可多格式输出结果
+
+> Vulmap 0.8 版本开始支持对 [dismap](https://github.com/zhzyker/dismap) 识别结果文件直接进行漏洞扫描 `-f output.txt`
+
 
 ## 🛒 Installation
 操作系统中必须有 python3, 推荐 python3.8 或者更高版本
