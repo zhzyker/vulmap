@@ -17,7 +17,6 @@ from module.api.fofa import fofa
 from module.api.dns import dns_result, dns_request
 from module.api.shodan import shodan_api
 from core.scan import scan
-from core.exploit import exploit
 from identify.identify import Identify
 from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
 
@@ -25,6 +24,7 @@ from concurrent.futures import ThreadPoolExecutor, wait, ALL_COMPLETED
 class Core(object):
     @staticmethod
     def control_options(args):  # 选项控制，用于处理所有选项
+        mode = "poc"
         delay = globals.get_value("DELAY")  # 获取全局变量延时时间DELAY
         now_warn = now.timed(de=delay) + color.red_warn()
         if args.socks:
@@ -37,8 +37,6 @@ class Core(object):
             exit(0)
         if args.thread_num != 10:  # 判断是否为默认线程
             print(now.timed(de=0) + color.yel_info() + color.yellow(" Custom thread number: " + str(args.thread_num)))
-        if args.vul is not None:  # 判断是否-v进行漏洞利用
-            args.mode = "exp"  # 若进行漏洞利用修改模式为exp
         if args.debug is False:  # 判断是否开启--debug功能
             print(now.timed(de=delay) + color.yel_info() + color.yellow(" Using debug mode to echo debug information"))
             globals.set_value("DEBUG", "debug")  # 设置全局变量DEBUG
@@ -55,7 +53,7 @@ class Core(object):
             if os.path.isfile(args.O_JSON):  # 判断json输出文件是否冲突
                 print(now.timed(de=delay) + color.red_warn() + color.red(" The json file: [" + args.O_JSON + "] already exists"))
                 exit(0)
-        if args.mode is None or args.mode == "poc":  # 判断是否进入poc模式
+        if mode == "poc":  # 判断是否进入poc模式
             if args.url is not None and args.file is None:  # 判断是否为仅-u扫描单个URL
                 args.url = url_check(args.url)  # 处理url格式
                 if survival_check(args.url) == "f":  # 检查目标存活状态
@@ -113,11 +111,6 @@ class Core(object):
                 print(now.timed(de=delay) + color.yel_info() + color.cyan(" Scan result text saved to: " + args.O_TEXT))
             if args.O_JSON:
                 print(now.timed(de=delay) + color.yel_info() + color.cyan(" Scan result json saved to: " + args.O_JSON))
-        elif args.mode == "exp":  # 漏洞利用模式参数较少
-            if args.vul is not None and args.url is not None:  # 判断是否进入漏洞利用模式
-                core.control_webapps("url", args.url, args.vul, "exp")
-            else:
-                print(now_warn + color.red(" Options error, -v must specify -u"))
         else:
             print(now_warn + color.red(" Options error ... ..."))
 
@@ -256,9 +249,6 @@ class Core(object):
                     joinall(gevent_pool)  # 运行协程池
                     wait(thread_poc, return_when=ALL_COMPLETED)  # 等待所有多线程任务运行完
                 print(now.timed(de=0) + color.yel_info() + color.yellow(" Scan completed and ended                             "))
-        elif mode == "exp":  # 漏洞利用
-            vul_num = webapps
-            exploit(target, vul_num)  # 调用core中的exploit
 
     @staticmethod
     def scan_webapps(webapps_identify, thread_poc, thread_pool, gevent_pool, target):

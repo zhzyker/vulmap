@@ -28,13 +28,13 @@ def config():
     }
     globals.init()  # 初始化全局变量模块
     globals.set_value("UA", args.ua)  # 设置全局变量UA
-    globals.set_value("VUL", args.vul)  # 设置全局变量VULN用于判断是否漏洞利用模式
+    globals.set_value("VUL", None)  # 设置全局变量VULN用于判断是否漏洞利用模式
     globals.set_value("CHECK", args.check)  # 目标存活检测
     globals.set_value("DEBUG", args.debug)  # 设置全局变量DEBUG
     globals.set_value("DELAY", args.delay)  # 设置全局变量延时时间DELAY
     globals.set_value("DNSLOG", args.dnslog)  # 用于判断使用哪个dnslog平台
     globals.set_value("DISMAP", "flase") # 是否接收dismap识别结果(false/true)
-    globals.set_value("VULMAP", str(0.8))  # 设置全局变量程序版本号
+    globals.set_value("VULMAP", str(0.9))  # 设置全局变量程序版本号
     globals.set_value("O_TEXT", args.O_TEXT)  # 设置全局变量OUTPUT判断是否输出TEXT
     globals.set_value("O_JSON", args.O_JSON)  # 设置全局变量OUTPUT判断是否输出JSON
     globals.set_value("HEADERS", header)  # 设置全局变量HEADERS

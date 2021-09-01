@@ -140,5 +140,5 @@ def vul_list():
  | Vmware vCenter    | CVE-2021-21972   |  Y  |  Y  | 7.0 < 7.0U1c, 6.7 < 6.7U3l, 6.5 < 6.5U3n, any file upload   |
  | VMware vRealize   | CVE-2021-21975   |  Y  |  N  | <= 8.3.0, vmware vrealize operations manager api ssrf       |
  +-------------------+------------------+-----+-----+-------------------------------------------------------------+
-    """)
+    """ + color.yellow("\n Vulmap release does not provide the exploit function after September 1, 2021 \n"))
     return vuln_list

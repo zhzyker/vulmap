@@ -11,9 +11,7 @@ def arg():
     target.add_argument("--fofa", dest="fofa", metavar='keyword', type=str, help=" call fofa api to scan (e.g. --fofa \"app=Apache-Shiro\")")
     target.add_argument("--shodan", dest="shodan", metavar='keyword', type=str, help=" call shodan api to scan (e.g. --shodan \"Shiro\")")
     mo = parser.add_argument_group("mode", "options vulnerability scanning or exploit mode")
-    mo.add_argument("-m", "--mode", dest="mode", type=str, help="supports poc and exp, if not specified the default poc")
     mo.add_argument("-a", dest="app", type=str, nargs='+', help="specify webapps (e.g. -a \"tomcat\") allow multiple")
-    mo.add_argument("-v", "--vul", type=str, default=None, help="exploit, specify vuln number (e.g. -v CVE-2019-2729)")
     ge = parser.add_argument_group("general", "general options")
     ge.add_argument("-h", "--help", action="help", help="show this help message and exit")
     ge.add_argument("-t", "--thread", dest="thread_num", type=int, default=10, metavar='NUM',
@@ -42,7 +40,6 @@ def arg():
     example.add_argument(action='store_false',
                          dest="python3 vulmap.py -u http://example.com\n  "
                               "python3 vulmap.py -u http://example.com -a struts2\n  "
-                              "python3 vulmap.py -u http://example.com:7001 -v CVE-2019-2729\n  "
                               "python3 vulmap.py -f list.txt -a weblogic -t 20\n  "
                               "python3 vulmap.py -f list.txt --output-json results.json\n  "
                               "python3 vulmap.py --fofa \"app=Apache-Shiro\"")
