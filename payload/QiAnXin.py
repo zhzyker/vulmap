@@ -56,7 +56,7 @@ class QiAnXin():
             request = requests.post(url, data=data, headers=self.headers, timeout=self.timeout, verify=False)
             url = urljoin(self.url, md + ".txt")
             req = requests.get(url, data="1", headers=self.headers, timeout=self.timeout, verify=False)
-            if md in misinformation(req.text, md) and req.status_code == 200:
+            if md in misinformation(req.text, md) and (md + ".txt") not in req.text and req.status_code == 200:
                 self.vul_info["vul_data"] = dump.dump_all(request).decode('utf-8', 'ignore')
                 self.vul_info["prt_resu"] = "PoCSuCCeSS"
                 self.vul_info["vul_payd"] = data
