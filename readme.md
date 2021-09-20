@@ -71,9 +71,9 @@ globals.set_value("ceye_token", "xxxxxxxxxx")
 ## 🙋 Discussion
 * Vulmap Bug 反馈或新功能建议[点我](https://github.com/zhzyker/vulmap/issues)
 * Twitter: https://twitter.com/zhzyker
-* WeChat: ~二群已开放~ 又满了，再加我拉吧    
+* WeChat: 扫码入群聊    
 <p>
-    <img alt="QR-code" src="https://github.com/zhzyker/zhzyker/blob/main/my-wechat.jpg" width="20%" height="20%" style="max-width:100%;">
+    <img alt="QR-code" src="https://github.com/zhzyker/zhzyker/blob/main/dismap_wechat_4.jpg" width="20%" height="20%" style="max-width:100%;">
 </p>
 
 ## 🔧 Options
