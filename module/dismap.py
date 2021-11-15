@@ -7,7 +7,7 @@ from module.time import now
 from module.color import color
 
 def dismap(line):
-    if "dismap 0.1 output file" in line:
+    if "dismap" in line:
         print(now.timed(de=0) + color.yel_info() + color.green(" The file is dismap Identification results"))
         globals.set_value("DISMAP", "true")
         return "######"
