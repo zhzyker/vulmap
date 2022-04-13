@@ -30,7 +30,7 @@ python3 vulmap.py -u http://example.com
 
 使用 Fofa or Shodan 需要修改 vulmap.py 中的配置信息：  
 
-* Fofa info: https://fofa.so/user/users/info  
+* Fofa info: https://fofa.info/user/users/info  
 ```bash
 # 把xxxxxxxxxx替换成fofa的邮箱
 globals.set_value("fofa_email", "xxxxxxxxxx")  
