@@ -16,7 +16,7 @@ def fofa(fofa, size):
     fofa_target = []
     keyword = base64.b64encode(str.encode(fofa))
     qbase = keyword.decode('ascii')
-    api_url = "https://fofa.so/api/v1/search/all?email={email}&key={key}&size={size}&qbase64={qbase}".format(email=email, key=key, size=size, qbase=qbase)
+    api_url = "https://fofa.info/api/v1/search/all?email={email}&key={key}&size={size}&qbase64={qbase}".format(email=email, key=key, size=size, qbase=qbase)
     print(now.timed(de=0) + color.yel_info() + color.yellow(" Fofa api: " + api_url))
     try:
         res = requests.get(api_url, headers=headers, timeout=timeout, verify=False)
