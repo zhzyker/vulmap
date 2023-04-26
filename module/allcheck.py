@@ -72,7 +72,7 @@ def survival_check(url):
                 elif port == None and r"http://" in url:
                     port = 80
                 else:
-                    port = 80
+                    port = port
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 sock.settimeout(5)
                 sock.connect((hostname, port))
